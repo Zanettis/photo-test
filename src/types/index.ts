@@ -8,4 +8,4 @@ export interface EventState {
   revealAt: string | null
 }
 
-export type TaggingStatus = 'pending' | 'processing' | 'done' | 'failed'
+export type TaggingStatus = 'pending' | 'done' | 'failed'

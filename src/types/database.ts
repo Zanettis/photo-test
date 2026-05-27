@@ -13,18 +13,22 @@ export interface Database {
         Row: {
           id: string
           email: string
+          plan: 'free' | 'basic' | 'complete'
           created_at: string
         }
         Insert: {
           id?: string
           email: string
+          plan?: 'free' | 'basic' | 'complete'
           created_at?: string
         }
         Update: {
           id?: string
           email?: string
+          plan?: 'free' | 'basic' | 'complete'
           created_at?: string
         }
+        Relationships: []
       }
       events: {
         Row: {
@@ -32,6 +36,8 @@ export interface Database {
           host_id: string
           name: string
           slug: string
+          event_date: string
+          settings: Json
           shot_cap: number | null
           reveal_at: string | null
           closes_at: string | null
@@ -43,6 +49,8 @@ export interface Database {
           host_id: string
           name: string
           slug: string
+          event_date: string
+          settings?: Json
           shot_cap?: number | null
           reveal_at?: string | null
           closes_at?: string | null
@@ -54,12 +62,23 @@ export interface Database {
           host_id?: string
           name?: string
           slug?: string
+          event_date?: string
+          settings?: Json
           shot_cap?: number | null
           reveal_at?: string | null
           closes_at?: string | null
           reveal_notified_at?: string | null
           created_at?: string
         }
+        Relationships: [
+          {
+            foreignKeyName: "events_host_id_fkey"
+            columns: ["host_id"]
+            isOneToOne: false
+            referencedRelation: "hosts"
+            referencedColumns: ["id"]
+          }
+        ]
       }
       photos: {
         Row: {
@@ -70,9 +89,11 @@ export interface Database {
           uploader_ip: string | null
           tags: string[] | null
           embedding: string | null
-          tagging_status: 'pending' | 'processing' | 'done' | 'failed'
+          tagging_status: 'pending' | 'done' | 'failed'
           is_flagged: boolean
-          created_at: string
+          file_size_bytes: number | null
+          mime_type: string | null
+          uploaded_at: string
         }
         Insert: {
           id?: string
@@ -82,9 +103,11 @@ export interface Database {
           uploader_ip?: string | null
           tags?: string[] | null
           embedding?: string | null
-          tagging_status?: 'pending' | 'processing' | 'done' | 'failed'
+          tagging_status?: 'pending' | 'done' | 'failed'
           is_flagged?: boolean
-          created_at?: string
+          file_size_bytes?: number | null
+          mime_type?: string | null
+          uploaded_at?: string
         }
         Update: {
           id?: string
@@ -94,10 +117,21 @@ export interface Database {
           uploader_ip?: string | null
           tags?: string[] | null
           embedding?: string | null
-          tagging_status?: 'pending' | 'processing' | 'done' | 'failed'
+          tagging_status?: 'pending' | 'done' | 'failed'
           is_flagged?: boolean
-          created_at?: string
+          file_size_bytes?: number | null
+          mime_type?: string | null
+          uploaded_at?: string
         }
+        Relationships: [
+          {
+            foreignKeyName: "photos_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          }
+        ]
       }
     }
     Views: Record<string, never>
