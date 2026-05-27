@@ -47,24 +47,24 @@ Atualizar este arquivo após completar qualquer task. Status: `[ ]` todo · `[~]
 ## Épico 2 — Upload de Convidados (Guest) + Camera UI
 
 **Schema:**
-- [ ] Migration: tabela `photos` com campos de upload e tagging_status
+- [x] Migration: tabela `photos` com campos de upload e tagging_status
 
 **Backend:**
-- [ ] `GET /api/events/[slug]` — dados públicos: `is_revealed`, `shot_cap`, `shots_used`, `reveal_at`
-- [ ] `POST /api/events/[slug]/upload-url` — validar + gerar presigned URL + retornar `shots_remaining`
-- [ ] Validações: mime_type, file_size, shot_cap check, rate limit global, plano do host
+- [x] `GET /api/events/[slug]` — dados públicos: `is_revealed`, `shot_cap`, `shots_used`, `reveal_at`
+- [x] `POST /api/events/[slug]/upload-url` — validar + gerar presigned URL + retornar `shots_remaining`
+- [x] Validações: mime_type, file_size, shot_cap check, rate limit global (50/token), plano do host
 
 **Frontend — Camera UI:**
-- [ ] Página guest — `src/app/e/[slug]/page.tsx`
-- [ ] Interface Camera UI: viewfinder estilizado, estética analógica
-- [ ] Botão shutter central e grande (não botão genérico de upload)
-- [ ] Contador de poses: "12 fotos restantes" (com shot_cap) ou "12 fotos enviadas" (sem limite)
-- [ ] Animação de flash após captura
-- [ ] Upload direto via presigned URL com retry (3 tentativas, backoff exponencial)
-- [ ] Feedback visual: loading, sucesso, erro ("Falha no envio. Tente novamente.")
-- [ ] Tela "suas fotos acabaram" quando shot_cap atingido (429 `shot_cap_reached`)
-- [ ] Tela countdown timer quando `reveal_at` no futuro (em vez de galeria)
-- [ ] Tela de evento encerrado (410)
+- [x] Página guest — `src/app/e/[slug]/page.tsx`
+- [x] Interface Camera UI: viewfinder estilizado, estética analógica
+- [x] Botão shutter central e grande (não botão genérico de upload)
+- [x] Contador de poses: "12 fotos restantes" (com shot_cap) ou "12 fotos enviadas" (sem limite)
+- [x] Animação de flash após captura
+- [x] Upload direto via presigned URL com retry (3 tentativas, backoff exponencial)
+- [x] Feedback visual: loading, sucesso, erro ("Falha no envio. Tente novamente.")
+- [x] Tela "suas fotos acabaram" quando shot_cap atingido (429 `shot_cap_reached`)
+- [x] Tela countdown timer quando `reveal_at` no futuro (informativo, não bloqueia câmera)
+- [x] Tela de evento encerrado
 
 **Testes:**
 - [ ] Teste: upload com JPEG válido
@@ -171,3 +171,4 @@ Atualizar este arquivo após completar qualquer task. Status: `[ ]` todo · `[~]
 | 2026-05-26 | Análise do Once: Delayed Reveal, Shot Cap e Camera UI aprovados para MVP | founder |
 | 2026-05-27 | Épico 0 iniciado: Next.js 16, shadcn/ui, Tailwind v4, Supabase SSR client, OpenAI client, manifest PWA, CI/CD | coder |
 | 2026-05-27 | Stack complementada: shadcn/ui+Tailwind v4 (UI), Vitest+Playwright (testes), Postgres (rate limiting) | architect |
+| 2026-05-27 | Épico 2 concluído: GET/POST API routes guest, Camera UI analógica, presigned URL upload, retry backoff | swarm (backend-dev + frontend-dev + reviewer) |
