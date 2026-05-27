@@ -2,19 +2,23 @@
 
 ## Stack
 
-| Camada | Tecnologia | Versão alvo |
-|--------|-----------|-------------|
-| Frontend | Next.js App Router (PWA) | 14.x |
+| Camada | Tecnologia | Versão |
+|--------|-----------|--------|
+| Frontend | Next.js App Router (PWA) | 16.x |
 | Hospedagem frontend | Vercel | — |
 | Database | Supabase Postgres + pgvector | Pro tier |
 | Storage | Supabase Storage + CDN | Pro tier |
 | Edge Functions | Supabase Edge Functions (Deno) | — |
 | AI Tagging | GPT-4o-mini Vision (OpenAI) | — |
 | AI Search | text-embedding-3-small (OpenAI) | 1536-dim |
-| Auth | Supabase Auth (Magic Link) | — |
+| Auth | Supabase Auth (Magic Link) | @supabase/ssr |
 | Email | Resend | — |
 | QR Code | qrcode.js (client-side) | — |
 | CI/CD | GitHub Actions → Vercel | — |
+| UI Components | shadcn/ui + Tailwind CSS | v4 |
+| Testes (unit/integration) | Vitest + @testing-library/react | — |
+| Testes (E2E) | Playwright | — |
+| Rate limiting | Supabase Postgres (query na tabela photos) | — |
 
 ---
 
@@ -148,6 +152,15 @@ collecting  ──closes_at──▶  post-event  ──reveal_at──▶  reve
 
 ### text-embedding-3-small 1536-dim (não large)
 **Por quê:** Custo/performance adequado para buscas em português com tags curtas. O modelo large não oferece melhora significativa para este caso de uso e custa 5x mais.
+
+### shadcn/ui + Tailwind CSS v4 (não Ant Design Mobile, não Material UI)
+**Por quê:** Componentes copiados (sem dependência de runtime), mobile-first, bundle mínimo, integração nativa com Next.js App Router. Tailwind v4 gerado por shadcn init.
+
+### Vitest + Playwright (não Jest)
+**Por quê:** Vitest tem suporte nativo a ESM e startup mais rápido no CI. Jest tem problemas conhecidos com Server Components do App Router. Playwright para E2E no fluxo crítico guest→upload.
+
+### Rate limiting via Postgres (não Upstash Redis)
+**Por quê:** Evita dependência extra de SaaS. A query `SELECT COUNT(*) FROM photos WHERE event_id = $1 AND uploader_ip = $2 AND created_at > now() - interval '1 hour'` é suficiente para o MVP e aproveita a infraestrutura Supabase já existente.
 
 ---
 

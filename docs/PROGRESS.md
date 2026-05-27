@@ -6,15 +6,15 @@ Atualizar este arquivo após completar qualquer task. Status: `[ ]` todo · `[~]
 
 ## Épico 0 — Setup & Infraestrutura
 
-- [ ] Inicializar projeto Next.js 14 App Router com TypeScript (`npx create-next-app`)
+- [x] Inicializar projeto Next.js 16 App Router com TypeScript + Tailwind + shadcn/ui
 - [ ] Configurar Supabase Pro: criar projeto, habilitar pgvector
-- [ ] Configurar variáveis de ambiente (`.env.local` + Vercel)
-- [ ] Configurar GitHub Actions CI/CD → Vercel deploy automático
+- [x] Configurar variáveis de ambiente (`.env.local` — chaves disponíveis; Vercel: pendente deploy)
+- [x] Configurar GitHub Actions CI/CD → `.github/workflows/ci.yml` criado
 - [ ] Configurar Resend (domínio de email verificado)
-- [ ] Configurar PWA: `manifest.json`, `service-worker.js`, ícones
-- [ ] Estrutura de pastas inicial (`src/app`, `src/lib`, `src/components`, `src/types`)
-- [ ] Cliente Supabase configurado (`src/lib/supabase.ts`)
-- [ ] Cliente OpenAI configurado (`src/lib/openai.ts`)
+- [x] Configurar PWA: `src/app/manifest.ts` criado (ícones pendentes)
+- [x] Estrutura de pastas inicial (`src/app`, `src/lib`, `src/components`, `src/types`, `supabase/`)
+- [x] Cliente Supabase configurado (`src/lib/supabase.ts`)
+- [x] Cliente OpenAI configurado (`src/lib/openai.ts`)
 
 ---
 
@@ -169,3 +169,5 @@ Atualizar este arquivo após completar qualquer task. Status: `[ ]` todo · `[~]
 |------|---------|--------|
 | 2026-05-26 | Documentação criada, setup pré-código | lead |
 | 2026-05-26 | Análise do Once: Delayed Reveal, Shot Cap e Camera UI aprovados para MVP | founder |
+| 2026-05-27 | Épico 0 iniciado: Next.js 16, shadcn/ui, Tailwind v4, Supabase SSR client, OpenAI client, manifest PWA, CI/CD | coder |
+| 2026-05-27 | Stack complementada: shadcn/ui+Tailwind v4 (UI), Vitest+Playwright (testes), Postgres (rate limiting) | architect |
