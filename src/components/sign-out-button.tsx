@@ -1,5 +1,5 @@
 'use client'
-import { createClient } from '@/lib/supabase-browser'
+import { createClient } from '@/lib/supabase-client'
 import { useRouter } from 'next/navigation'
 
 export function SignOutButton() {

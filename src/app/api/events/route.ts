@@ -34,6 +34,11 @@ export async function POST(request: NextRequest) {
   const host = hostData as Database['public']['Tables']['hosts']['Row'] | null
   if (!host) return NextResponse.json({ error: 'Host not found' }, { status: 404 })
 
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL
+  if (!appUrl) {
+    return NextResponse.json({ error: 'NEXT_PUBLIC_APP_URL not configured' }, { status: 500 })
+  }
+
   const { count } = await supabase
     .from('events')
     .select('id', { count: 'exact', head: true })
@@ -64,7 +69,7 @@ export async function POST(request: NextRequest) {
   const event = eventData as EventRow | null
   if (error || !event) return NextResponse.json({ error: error?.message ?? 'Insert failed' }, { status: 500 })
 
-  const link = `${process.env.NEXT_PUBLIC_APP_URL}/e/${slug}`
+  const link = `${appUrl}/e/${slug}`
   return NextResponse.json(
     { id: event.id, slug, name: event.name, event_date, shot_cap: event.shot_cap, reveal_at: event.reveal_at, link },
     { status: 201 }

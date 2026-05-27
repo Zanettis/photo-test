@@ -82,6 +82,14 @@ export async function POST(
   const ext = mime_type === 'image/jpeg' ? 'jpg' : 'png'
   const storagePath = `events/${slug}/${photoId}.${ext}`
 
+  const { data: signedData, error: signedError } = await serviceClient.storage
+    .from('photos')
+    .createSignedUploadUrl(storagePath)
+
+  if (signedError || !signedData) {
+    return NextResponse.json({ error: 'signed_url_failed' }, { status: 500 })
+  }
+
   const { error: insertError } = await serviceClient.from('photos').insert({
     id: photoId,
     event_id: event.id,
@@ -95,14 +103,6 @@ export async function POST(
 
   if (insertError) {
     return NextResponse.json({ error: 'insert_failed' }, { status: 500 })
-  }
-
-  const { data: signedData, error: signedError } = await serviceClient.storage
-    .from('photos')
-    .createSignedUploadUrl(storagePath)
-
-  if (signedError || !signedData) {
-    return NextResponse.json({ error: 'signed_url_failed' }, { status: 500 })
   }
 
   const shots_remaining =

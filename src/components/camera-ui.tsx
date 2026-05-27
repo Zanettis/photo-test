@@ -72,9 +72,12 @@ export default function CameraUI({ event, slug }: Props) {
     let upload_url: string
     let shots_remaining: number | null
 
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 15000)
     try {
       const res = await fetch(`/api/events/${slug}/upload-url`, {
         method: 'POST',
+        signal: controller.signal,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           uploader_token: uploaderToken,
@@ -102,10 +105,17 @@ export default function CameraUI({ event, slug }: Props) {
       const data = await res.json()
       upload_url = data.upload_url
       shots_remaining = data.shots_remaining ?? null
-    } catch {
+    } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') {
+        setError('Conexão lenta. Tente novamente.')
+        setScreen('camera')
+        return
+      }
       setError('Sem conexão. Tente novamente.')
       setScreen('camera')
       return
+    } finally {
+      clearTimeout(timeoutId)
     }
 
     // Step 2: upload to storage with exponential backoff retries
