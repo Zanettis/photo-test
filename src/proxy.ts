@@ -25,6 +25,7 @@ export async function proxy(request: NextRequest) {
     }
   )
 
+  // Refresh session — required by @supabase/ssr to keep tokens valid
   const { data: { user } } = await supabase.auth.getUser()
 
   const isProtected =

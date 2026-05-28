@@ -88,7 +88,7 @@ export interface Database {
           uploader_token: string
           uploader_ip: string | null
           tags: string[] | null
-          embedding: string | null
+          embedding: number[] | null
           tagging_status: 'pending' | 'done' | 'failed'
           is_flagged: boolean
           file_size_bytes: number | null
@@ -102,7 +102,7 @@ export interface Database {
           uploader_token: string
           uploader_ip?: string | null
           tags?: string[] | null
-          embedding?: string | null
+          embedding?: number[] | null
           tagging_status?: 'pending' | 'done' | 'failed'
           is_flagged?: boolean
           file_size_bytes?: number | null
@@ -116,7 +116,7 @@ export interface Database {
           uploader_token?: string
           uploader_ip?: string | null
           tags?: string[] | null
-          embedding?: string | null
+          embedding?: number[] | null
           tagging_status?: 'pending' | 'done' | 'failed'
           is_flagged?: boolean
           file_size_bytes?: number | null

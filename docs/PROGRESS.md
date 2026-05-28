@@ -7,7 +7,7 @@ Atualizar este arquivo após completar qualquer task. Status: `[ ]` todo · `[~]
 ## Épico 0 — Setup & Infraestrutura
 
 - [x] Inicializar projeto Next.js 16 App Router com TypeScript + Tailwind + shadcn/ui
-- [ ] Configurar Supabase Pro: criar projeto, habilitar pgvector
+- [ ] Configurar Supabase (free tier): criar projeto, habilitar extensão pgvector
 - [x] Configurar variáveis de ambiente (`.env.local` — chaves disponíveis; Vercel: pendente deploy)
 - [x] Configurar GitHub Actions CI/CD → `.github/workflows/ci.yml` criado
 - [ ] Configurar Resend (domínio de email verificado)
@@ -78,16 +78,26 @@ Atualizar este arquivo após completar qualquer task. Status: `[ ]` todo · `[~]
 ## Épico 3 — AI Tagging (Async)
 
 **Schema:**
-- [ ] Migration: adicionar `tags TEXT[]`, `embedding VECTOR(1536)`, índice HNSW em `photos.embedding`
+- [x] Migration: adicionar `tags TEXT[]`, `embedding VECTOR(1536)`, índice HNSW em `photos.embedding`
 
 **Edge Function:**
-- [ ] `supabase/functions/on-upload/index.ts` — trigger storage → GPT-4o-mini → embedding → update photos
-- [ ] Tratamento de erro: `tagging_status = 'failed'` em caso de timeout/falha OpenAI
+- [x] `supabase/functions/on-upload/index.ts` — trigger storage → GPT-4o-mini → embedding → update photos
+- [x] Tratamento de erro: `tagging_status = 'failed'` em caso de timeout/falha OpenAI (await + try/catch)
+- [x] Retry com backoff exponencial + timeout 30s nas chamadas OpenAI
+- [x] Validação UUID em `photoIdFromPath` — rejeita paths malformados
+- [x] Validação de variáveis de ambiente na inicialização (`getRequiredEnv`)
+- [x] Encoding base64 em chunks — evita stack overflow em imagens grandes
 - [ ] Deploy da Edge Function no Supabase
 
-**Testes:**
-- [ ] Teste: foto processada recebe tags e embedding em <60s
-- [ ] Teste: falha na API OpenAI resulta em `tagging_status = 'failed'` (não crash)
+**Testes (`src/tests/functions/on-upload.test.ts`):**
+- [x] Teste: foto processada recebe tags e embedding em <60s (contrato)
+- [x] Teste: falha na API OpenAI resulta em `tagging_status = 'failed'` (não crash)
+- [x] Teste: bucket errado retorna 200 sem chamar OpenAI
+- [x] Teste: foto não encontrada no DB retorna 200 sem chamar OpenAI
+- [x] Teste: JSON inválido do GPT resulta em `tagging_status = 'failed'`
+- [x] Teste: embedding com dimensões erradas resulta em `tagging_status = 'failed'`
+- [x] Teste: idempotência — mesma foto processada 2x retorna sucesso
+- [x] Teste: embedding armazenado como `number[]`, não como string JSON
 
 ---
 
@@ -172,3 +182,4 @@ Atualizar este arquivo após completar qualquer task. Status: `[ ]` todo · `[~]
 | 2026-05-27 | Épico 0 iniciado: Next.js 16, shadcn/ui, Tailwind v4, Supabase SSR client, OpenAI client, manifest PWA, CI/CD | coder |
 | 2026-05-27 | Stack complementada: shadcn/ui+Tailwind v4 (UI), Vitest+Playwright (testes), Postgres (rate limiting) | architect |
 | 2026-05-27 | Épico 2 concluído: GET/POST API routes guest, Camera UI analógica, presigned URL upload, retry backoff | swarm (backend-dev + frontend-dev + reviewer) |
+| 2026-05-27 | Épico 3 revisado: fix bug crítico embedding (JSON.stringify→array), retry/timeout OpenAI, error handler await, UUID validation, middleware Next.js 16 (proxy.ts), +4 testes | review swarm |
