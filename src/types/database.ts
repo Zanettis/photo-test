@@ -42,6 +42,8 @@ export interface Database {
           reveal_at: string | null
           closes_at: string | null
           reveal_notified_at: string | null
+          closes_notified_at: string | null
+          nps_notified_at: string | null
           created_at: string
         }
         Insert: {
@@ -55,6 +57,8 @@ export interface Database {
           reveal_at?: string | null
           closes_at?: string | null
           reveal_notified_at?: string | null
+          closes_notified_at?: string | null
+          nps_notified_at?: string | null
           created_at?: string
         }
         Update: {
@@ -68,6 +72,8 @@ export interface Database {
           reveal_at?: string | null
           closes_at?: string | null
           reveal_notified_at?: string | null
+          closes_notified_at?: string | null
+          nps_notified_at?: string | null
           created_at?: string
         }
         Relationships: [
@@ -135,7 +141,23 @@ export interface Database {
       }
     }
     Views: Record<string, never>
-    Functions: Record<string, never>
+    Functions: {
+      search_photos: {
+        Args: {
+          event_id_param: string
+          query_embedding: number[]
+          match_count?: number
+        }
+        Returns: {
+          id: string
+          storage_path: string
+          tags: string[] | null
+          tagging_status: string
+          uploaded_at: string
+          similarity: number
+        }[]
+      }
+    }
     Enums: Record<string, never>
   }
 }

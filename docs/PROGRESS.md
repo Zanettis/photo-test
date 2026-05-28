@@ -104,38 +104,63 @@ Atualizar este arquivo após completar qualquer task. Status: `[ ]` todo · `[~]
 ## Épico 4 — Busca Semântica (Host)
 
 **Backend:**
-- [ ] `GET /api/events/[slug]/search?q=` — embedding da query + cosine search pgvector
+- [x] `GET /api/events/[slug]/search?q=` — embedding da query + cosine search pgvector
+- [x] `GET /api/events/[slug]/gallery` — galeria paginada com RLS, host-only
 - [ ] `GET /api/events/[slug]/download` — gerar ZIP sob demanda, link expira em 1h
 
 **Frontend:**
-- [ ] Galeria do evento — `src/app/(host)/events/[slug]/page.tsx`
-- [ ] Campo de busca com debounce (300ms)
-- [ ] Grid de resultados ordenados por similaridade
+- [x] Galeria do evento — `src/app/(host)/events/[slug]/page.tsx`
+- [x] Campo de busca com debounce (300ms)
+- [x] Grid de resultados ordenados por similaridade
+- [x] Aviso de fotos em processamento (`pendingCount > 0`)
 - [ ] Download individual + botão "baixar todas"
-- [ ] Estado vazio: fotos sem tags ainda ("Processando fotos...")
+- [ ] Estado vazio explícito quando 0 fotos com tags ("Processando fotos...")
 
 **Testes:**
 - [ ] Teste: busca "vela" retorna fotos com tag "vela" antes das demais
 - [ ] Teste: busca em português funciona com sinônimos ("brinde" ≈ "toast")
+- [ ] Testes para `gallery/route.ts` (endpoint novo, sem cobertura)
+- [ ] Teste: rate limit retorna 429 após 30 requests/min
 
 ---
 
 ## Épico 5 — Moderação + Notificação
 
+**Decisões de arquitetura (planejado 2026-05-28, pipeline researcher→architect→reviewer):**
+- **Delete semântica:** hard-delete (Storage first, depois DB). Não soft-flag.
+- **Guest emails → Épico 6:** coletar emails de convidados requer consent flow explícito (LGPD) + adiciona fricção antes do upload. MVP envia apenas emails para o host.
+- **Lazy evaluation:** emails disparados na primeira request do host ao dashboard após fechamento — sem cron. Idempotência via `closes_notified_at`.
+- **IDOR protection:** DELETE deve verificar que `photo.event_id === event.id` (foto pertence ao evento do slug).
+- **Storage delete order:** deletar Storage PRIMEIRO. Se falhar → 500, DB intocado. Se Storage OK e DB falha → logar, aceitar órfão no Storage.
+
+**Schema:**
+- [x] Migration `supabase/migrations/20260528000001_epic5_moderation.sql` — adicionar `closes_notified_at TIMESTAMPTZ` em `events`
+- [x] Atualizar `src/types/database.ts` com `closes_notified_at: string | null`
+- [x] Instalar dependência: `resend ^6.12.4`
+
 **Backend:**
-- [ ] `DELETE /api/events/[slug]/photos/[photo_id]` — moderação host
-- [ ] Lógica de encerramento de evento (closes_at)
-- [ ] Email pós-evento para convidados (Resend) — link da galeria
-- [ ] Email NPS para host (Resend) — 48h após evento
+- [x] `DELETE /api/events/[slug]/photos/[photo_id]` — moderação host (Storage first → DB; dupla verificação IDOR)
+- [x] `PATCH /api/events/[slug]` — editar `name` e `closes_at`
+- [x] `src/lib/resend.ts` — helper Resend + templates PT-BR; init condicional (null sem API key)
+- [x] Trigger lazy em `GET /api/events/route.ts`: fire-and-forget com guard `closes_notified_at IS NULL`
 
 **Frontend:**
-- [ ] Botão "deletar foto" na galeria (hover/long-press)
-- [ ] Confirmação de moderação
-- [ ] Configurações do evento (closes_at, nome)
+- [x] `src/components/delete-photo-dialog.tsx` — dialog de confirmação (Base UI Dialog, 52 linhas)
+- [x] Editar `src/components/photo-grid.tsx` — prop `onDelete?`, botão Trash2 hover (77 linhas)
+- [x] Editar `src/app/(host)/events/[slug]/page.tsx` — handleDelete, badge "Encerrado", link Settings
+- [x] `src/app/(host)/events/[slug]/settings/page.tsx` — editar name e closes_at (143 linhas)
 
-**Testes:**
-- [ ] Teste: host deleta foto → removida da galeria e do Storage
-- [ ] Teste: evento encerrado bloqueia uploads
+**Testes (`src/tests/api/moderation.test.ts` — 13 testes ✅):**
+- [x] Unauthenticated → 401
+- [x] Evento não pertence ao host → 403
+- [x] Foto não pertence ao evento (IDOR) → 404
+- [x] Storage delete falha → 500, DB intocado (verificado via spy)
+- [x] DB delete falha → 500
+- [x] Delete bem-sucedido → 204; storage.remove chamado com path correto
+- [x] PATCH: body vazio → 400
+- [x] PATCH: closes_at inválido → 400
+- [x] PATCH: name vazio → 400
+- [x] PATCH válido → 200
 
 ---
 
@@ -161,6 +186,28 @@ Atualizar este arquivo após completar qualquer task. Status: `[ ]` todo · `[~]
 
 ---
 
+## Backlog de Qualidade — descoberto na revisão da Épica 4
+
+Itens identificados por revisão multi-agente (2026-05-28). Não bloqueiam o MVP mas devem ser resolvidos antes de produção.
+
+**🔴 Alta — corrigidos nesta sessão:**
+- [x] `gallery/route.ts`: limit sem floor → crash com `?limit=-1` (adicionado `Math.max(1,...)`)
+- [x] `gallery/route.ts`: offset sem validação → NaN/negativo quebrava range (clamped para 0)
+- [x] `gallery/route.ts`: sem verificação explícita de `host_id` (adicionado check pós-RLS)
+- [x] `search/route.ts`: sem rate limiting → custo ilimitado OpenAI (30 req/min por user, HTTP 429)
+- [x] `search/route.ts`: `tagging_status` hardcoded `'done'` ignorava valor real do banco
+- [x] `search/route.ts`: `event_id` exposto desnecessariamente no response JSON
+- [x] Arquivo órfão `MAX_QUERY_LENGTH)` na raiz do projeto — deletado
+
+**🟡 Baixa — pendentes:**
+- [ ] `gallery/route.ts:37`: coluna `is_flagged` selecionada no SELECT mas descartada no response — remover do SELECT
+- [ ] `search/route.ts:64`: `embeddingResponse.data[0]` sem guarda — adicionar check `if (!embeddingResponse.data[0])`
+
+**🔵 Cleanup — pendentes:**
+- [ ] Extrair padrão auth+ownership duplicado (search + gallery + upload-url) para helper compartilhado `src/lib/require-event-host.ts`
+
+---
+
 ## Critérios de done do MVP
 
 - [ ] Fluxo E2E completo funciona (host cria → guest faz upload → host busca)
@@ -183,3 +230,7 @@ Atualizar este arquivo após completar qualquer task. Status: `[ ]` todo · `[~]
 | 2026-05-27 | Stack complementada: shadcn/ui+Tailwind v4 (UI), Vitest+Playwright (testes), Postgres (rate limiting) | architect |
 | 2026-05-27 | Épico 2 concluído: GET/POST API routes guest, Camera UI analógica, presigned URL upload, retry backoff | swarm (backend-dev + frontend-dev + reviewer) |
 | 2026-05-27 | Épico 3 revisado: fix bug crítico embedding (JSON.stringify→array), retry/timeout OpenAI, error handler await, UUID validation, middleware Next.js 16 (proxy.ts), +4 testes | review swarm |
+| 2026-05-28 | Épico 4 implementado: search API, gallery API, host gallery page, photo-grid component, migration search_photos SQL | coder |
+| 2026-05-28 | Revisão multi-agente Épica 4: 9 findings (3 alta, 2 média, 2 baixa, 2 cleanup) — todos alta corrigidos + 47/47 testes passando | review swarm + code-review skill |
+| 2026-05-28 | Épico 5 planejado: pipeline researcher→architect→reviewer; guest emails → Épico 6 (LGPD); hard-delete Storage-first; closes_notified_at para idempotência; IDOR protection obrigatória | planning swarm |
+| 2026-05-28 | Épico 5 implementado: DELETE photo, PATCH event, resend.ts (lazy init), lazy email trigger, delete dialog, photo-grid onDelete, settings page — 71/71 testes passando, build limpo | 4-agent swarm (backend + frontend + review + test) |

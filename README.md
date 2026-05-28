@@ -24,7 +24,7 @@ PWA para coleta e busca semântica de fotos em eventos sociais no Brasil. Interf
 
 ## Stack
 
-Next.js 14 PWA · Supabase Pro · GPT-4o-mini Vision · pgvector · text-embedding-3-small · Resend · Vercel
+Next.js 16 PWA · Supabase · GPT-4o-mini Vision · pgvector · text-embedding-3-small · Resend · Vercel
 
 ---
 

@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerSupabaseClient } from '@/lib/supabase'
+import { createServerSupabaseClient, createServiceClient } from '@/lib/supabase'
 import type { Database } from '@/types/database'
 import { nanoid } from 'nanoid'
+import { sendHostClosureEmail, sendHostNpsEmail } from '@/lib/resend'
 
 type EventRow = Database['public']['Tables']['events']['Row']
 type EventInsert = Database['public']['Tables']['events']['Insert']
@@ -76,21 +77,91 @@ export async function POST(request: NextRequest) {
   )
 }
 
+type EventWithCount = Pick<EventRow, 'id' | 'slug' | 'name' | 'event_date' | 'shot_cap' | 'reveal_at' | 'closes_at' | 'closes_notified_at' | 'nps_notified_at' | 'created_at'> & {
+  photos: { count: number }[]
+}
+
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
+
+async function checkAndSendPendingEmails(
+  events: EventWithCount[],
+  hostEmail: string,
+  serviceClient: ReturnType<typeof createServiceClient>
+): Promise<void> {
+  const now = new Date()
+
+  for (const event of events) {
+    if (!event.closes_at) continue
+    if (new Date(event.closes_at) > now) continue
+    if (event.closes_notified_at !== null) continue
+
+    // Mark as notified first to prevent duplicate sends on concurrent requests
+    const { data: claimedRows, error } = await serviceClient
+      .from('events')
+      .update({ closes_notified_at: now.toISOString() })
+      .eq('id', event.id)
+      .is('closes_notified_at', null)
+      .select('id')
+
+    if (error) {
+      console.error('[events] closes_notified_at update failed:', error)
+      continue
+    }
+    if (!claimedRows || claimedRows.length === 0) {
+      // Concurrent request already claimed this — skip to avoid duplicate email
+      continue
+    }
+
+    const galleryUrl = `${APP_URL}/events/${event.slug}`
+    void sendHostClosureEmail(hostEmail, event.name, galleryUrl).catch(console.error)
+  }
+
+  // NPS emails: fire 48h after event_date, independently of closure
+  for (const event of events) {
+    if (event.nps_notified_at !== null) continue
+
+    const eventDatePlus48h = new Date(event.event_date)
+    eventDatePlus48h.setHours(eventDatePlus48h.getHours() + 48)
+    if (eventDatePlus48h > now) continue
+
+    const { data: npsRows, error: npsError } = await serviceClient
+      .from('events')
+      .update({ nps_notified_at: now.toISOString() })
+      .eq('id', event.id)
+      .is('nps_notified_at', null)
+      .select('id')
+
+    if (!npsError && npsRows && npsRows.length > 0) {
+      void sendHostNpsEmail(hostEmail, event.name).catch(console.error)
+    }
+  }
+}
+
 export async function GET() {
   const supabase = await createServerSupabaseClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  type EventWithCount = Pick<EventRow, 'id' | 'slug' | 'name' | 'event_date' | 'shot_cap' | 'reveal_at' | 'closes_at' | 'created_at'> & {
-    photos: { count: number }[]
-  }
-
   const { data } = await supabase
     .from('events')
-    .select('id, slug, name, event_date, shot_cap, reveal_at, closes_at, created_at, photos(count)')
+    .select('id, slug, name, event_date, shot_cap, reveal_at, closes_at, closes_notified_at, nps_notified_at, created_at, photos(count)')
     .eq('host_id', user.id)
     .order('created_at', { ascending: false })
 
   const events = (data ?? []) as EventWithCount[]
+
+  // Fire-and-forget: resolve host email and check pending closure emails without blocking response
+  void (async () => {
+    try {
+      const { data: hostData } = await supabase.from('hosts').select('email').eq('id', user.id).single()
+      if (hostData?.email) {
+        const serviceClient = createServiceClient()
+        await checkAndSendPendingEmails(events, hostData.email, serviceClient)
+      }
+    } catch (err) {
+      console.error('[events] checkAndSendPendingEmails error:', err)
+    }
+  })()
+
   return NextResponse.json(events)
 }

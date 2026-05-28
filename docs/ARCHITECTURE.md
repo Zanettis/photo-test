@@ -6,8 +6,8 @@
 |--------|-----------|--------|
 | Frontend | Next.js App Router (PWA) | 16.x |
 | Hospedagem frontend | Vercel | — |
-| Database | Supabase Postgres + pgvector | Pro tier |
-| Storage | Supabase Storage + CDN | Pro tier |
+| Database | Supabase Postgres + pgvector | Free tier |
+| Storage | Supabase Storage + CDN | Free tier |
 | Edge Functions | Supabase Edge Functions (Deno) | — |
 | AI Tagging | GPT-4o-mini Vision (OpenAI) | — |
 | AI Search | text-embedding-3-small (OpenAI) | 1536-dim |
@@ -88,7 +88,7 @@ galeria + moderação    busca em linguagem natural
 │   │   ├── e/[slug]/             # Rota pública guest (upload)
 │   │   ├── api/                  # API Routes
 │   │   │   ├── events/           # CRUD eventos
-│   │   │   └── events/[slug]/    # Upload URL + search
+│   │   │   └── events/[slug]/    # Upload URL + search + DELETE foto + PATCH evento
 │   │   └── layout.tsx
 │   ├── components/               # Componentes React
 │   ├── lib/                      # Utilitários (supabase client, openai, etc.)
@@ -147,8 +147,8 @@ collecting  ──closes_at──▶  post-event  ──reveal_at──▶  reve
 ### Camera UI — componente separado do fluxo de upload
 **Por quê:** A interface da câmera é responsabilidade do frontend (UX); o fluxo de upload (presigned URL, retry) é responsabilidade da lógica de negócio. Manter separados permite iterar no design sem tocar na lógica de upload.
 
-### Supabase Pro (não Free tier)
-**Por quê:** Free tier não suporta pgvector em produção nem connection pooling. Pro é necessário para Edge Functions estáveis e pgvector com performance adequada.
+### Supabase Free tier
+**Por quê:** pgvector, Edge Functions, Storage e Auth estão disponíveis no free tier — suficiente para MVP. Limitações a considerar: banco pausa após 7 dias de inatividade (irrelevante em produção ativa), storage de 1GB e DB de 500MB (suficiente para validação). Upgrade para Pro quando houver usuários pagantes reais.
 
 ### text-embedding-3-small 1536-dim (não large)
 **Por quê:** Custo/performance adequado para buscas em português com tags curtas. O modelo large não oferece melhora significativa para este caso de uso e custa 5x mais.
@@ -161,6 +161,15 @@ collecting  ──closes_at──▶  post-event  ──reveal_at──▶  reve
 
 ### Rate limiting via Postgres (não Upstash Redis)
 **Por quê:** Evita dependência extra de SaaS. A query `SELECT COUNT(*) FROM photos WHERE event_id = $1 AND uploader_ip = $2 AND created_at > now() - interval '1 hour'` é suficiente para o MVP e aproveita a infraestrutura Supabase já existente.
+
+### Moderação: hard-delete (não soft-flag)
+**Por quê:** O campo `is_flagged` existe no schema mas a galeria já o filtra. Hard-delete (Storage + DB) é mais simples: sem lógica de "lixeira", sem custo de storage acumulado, sem risco de foto flagada vazar em future queries. Irreversível por design — host vê confirmação antes.
+
+### Emails transacionais: lazy evaluation (não cron)
+**Por quê:** Cron jobs pagos não estão disponíveis no free tier Supabase. Emails (encerramento + NPS) são disparados via fire-and-forget na primeira request do host ao dashboard após o trigger. Idempotência garantida por `closes_notified_at TIMESTAMPTZ` na tabela `events` — mesmo padrão do `reveal_notified_at`. Um email não enviado (host nunca acessa o dashboard) é aceitável para MVP.
+
+### Guest emails → Fase 2 (Épico 6)
+**Por quê:** Convidados não fornecem email no fluxo atual (zero-friction é critério de done). Armazenar emails sem consent flow explícito viola LGPD. Notificação para guests será implementada no Épico 6 com campo opcional na Camera UI e checkbox de consentimento.
 
 ---
 

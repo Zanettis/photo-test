@@ -60,13 +60,14 @@ O host define o momento em que a galeria será revelada. Gera antecipação e tr
 ---
 
 ### Épico 5 — Moderação + Notificação
-Host modera fotos indesejadas; convidados recebem link da galeria pós-evento.
+Host modera fotos indesejadas; recebe email de encerramento e NPS.
 
-- Host pode flaggar/deletar foto indesejada (moderação manual)
-- Evento ativo por 30 dias após data do evento (configurável até 90 dias)
+- Host pode deletar foto indesejada (moderação manual — hard delete, sem recovery)
+- Evento ativo por 30 dias após data do evento (configurável até 90 dias via PATCH)
 - Após encerramento: guests não podem mais fazer upload; host mantém acesso indefinido
-- Resend envia email para convidados com link da galeria (trigger: encerramento do evento)
-- Resend envia email de NPS para o host 48h após o evento
+- Resend envia email para o **host** com link da galeria quando evento encerra (lazy, idempotente via `closes_notified_at`)
+- Resend envia email de NPS para o host 48h após o evento (lazy, mesmo guard `closes_notified_at`)
+- **Email para convidados → Épico 6** (requer consent flow LGPD explícito + campo de email na Camera UI)
 
 ---
 
@@ -89,7 +90,7 @@ Host modera fotos indesejadas; convidados recebem link da galeria pós-evento.
 
 | Dependência | Tipo | Status |
 |------------|------|--------|
-| Supabase Pro | Infra (DB + Storage + Edge Functions + pgvector) | Pendente |
+| Supabase (free tier) | Infra (DB + Storage + Edge Functions + pgvector) | Pendente |
 | OpenAI API key | AI (GPT-4o-mini + text-embedding-3-small) | Pendente |
 | Resend | Email transacional | Pendente |
 | Vercel | Deploy frontend | Pendente |
