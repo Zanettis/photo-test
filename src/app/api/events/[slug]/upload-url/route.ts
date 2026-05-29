@@ -17,6 +17,7 @@ export async function POST(
     file_name?: unknown
     mime_type?: unknown
     file_size_bytes?: unknown
+    guest_email?: unknown
   }
 
   try {
@@ -25,7 +26,7 @@ export async function POST(
     return NextResponse.json({ error: 'invalid_body' }, { status: 400 })
   }
 
-  const { uploader_token, file_name, mime_type, file_size_bytes } = body
+  const { uploader_token, file_name, mime_type, file_size_bytes, guest_email } = body
 
   if (!uploader_token || !file_name || !mime_type || file_size_bytes === undefined) {
     return NextResponse.json({ error: 'missing_fields' }, { status: 400 })
@@ -98,6 +99,7 @@ export async function POST(
     file_size_bytes: file_size_bytes as number,
     mime_type: mime_type as string,
     uploader_ip: request.headers.get('x-forwarded-for') ?? null,
+    guest_email: typeof guest_email === 'string' && guest_email.trim() ? guest_email.trim() : null,
     tagging_status: 'pending',
   })
 

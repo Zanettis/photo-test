@@ -10,22 +10,31 @@ export async function GET(
 ) {
   const { slug } = await params
 
-  // Auth: server client honors RLS
   const supabase = await createServerSupabaseClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  // Ownership check via RLS policy "host_manage_events"
-  const { data: event } = await supabase
+  const serviceClient = createServiceClient()
+
+  const { data: event } = await serviceClient
     .from('events')
     .select('id, slug, name, event_date, reveal_at, closes_at, host_id')
     .eq('slug', slug)
     .single()
 
   if (!event) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    return NextResponse.json({ error: 'Not Found' }, { status: 404 })
   }
-  if (event.host_id !== user.id) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+
+  const now = new Date().toISOString()
+  const is_revealed = event.reveal_at === null || event.reveal_at <= now
+  const isHost = user !== null && user.id === event.host_id
+
+  if (!isHost && !is_revealed) {
+    return NextResponse.json(
+      { error: 'not_revealed', reveal_at: event.reveal_at, is_revealed: false },
+      { status: 403 }
+    )
+  }
 
   const { searchParams } = new URL(request.url)
   const limitParam = parseInt(searchParams.get('limit') ?? String(DEFAULT_LIMIT), 10)
@@ -33,8 +42,7 @@ export async function GET(
   const offsetRaw = parseInt(searchParams.get('offset') ?? '0', 10)
   const offset = isNaN(offsetRaw) || offsetRaw < 0 ? 0 : offsetRaw
 
-  // Fetch photos for this event (host sees all, RLS already filters)
-  const { data: photos, error, count } = await supabase
+  const { data: photos, error, count } = await serviceClient
     .from('photos')
     .select('id, storage_path, tags, tagging_status, uploaded_at', { count: 'exact' })
     .eq('event_id', event.id)
@@ -47,8 +55,6 @@ export async function GET(
     return NextResponse.json({ error: 'Gallery fetch failed' }, { status: 500 })
   }
 
-  // Attach public URLs
-  const serviceClient = createServiceClient()
   const items = (photos ?? []).map((photo) => {
     const { data: { publicUrl } } = serviceClient.storage
       .from('photos')

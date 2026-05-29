@@ -77,13 +77,13 @@ export async function PATCH(
     return NextResponse.json({ error: 'invalid_json' }, { status: 400 })
   }
 
-  const { name, closes_at } = body as { name?: unknown; closes_at?: unknown }
+  const { name, closes_at, reveal_at } = body as { name?: unknown; closes_at?: unknown; reveal_at?: unknown }
 
-  if (name === undefined && closes_at === undefined) {
+  if (name === undefined && closes_at === undefined && reveal_at === undefined) {
     return NextResponse.json({ error: 'nothing_to_update' }, { status: 400 })
   }
 
-  const patch: { name?: string; closes_at?: string | null } = {}
+  const patch: { name?: string; closes_at?: string | null; reveal_at?: string | null } = {}
 
   if (name !== undefined) {
     if (typeof name !== 'string' || name.trim().length === 0 || name.trim().length > 100) {
@@ -113,11 +113,21 @@ export async function PATCH(
     }
   }
 
+  if (reveal_at !== undefined) {
+    if (reveal_at === null) {
+      patch.reveal_at = null
+    } else if (typeof reveal_at === 'string' && !isNaN(Date.parse(reveal_at))) {
+      patch.reveal_at = reveal_at
+    } else {
+      return NextResponse.json({ error: 'invalid_reveal_at' }, { status: 400 })
+    }
+  }
+
   const { data: updated, error } = await supabase
     .from('events')
     .update(patch)
     .eq('id', event.id)
-    .select('id, slug, name, event_date, closes_at')
+    .select('id, slug, name, event_date, closes_at, reveal_at')
     .single()
 
   if (error || !updated) {
@@ -131,5 +141,6 @@ export async function PATCH(
     name: updated.name,
     event_date: updated.event_date,
     closes_at: updated.closes_at,
+    reveal_at: updated.reveal_at,
   })
 }

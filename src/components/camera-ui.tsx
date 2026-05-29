@@ -30,12 +30,18 @@ export default function CameraUI({ event, slug }: Props) {
   const [shotsTotal, setShotsTotal] = useState(0)
   const [error, setError] = useState<string | null>(null)
   const [countdown, setCountdown] = useState<string | null>(null)
+  const [guestEmail, setGuestEmail] = useState('')
+  const [emailSaved, setEmailSaved] = useState(false)
 
   useEffect(() => {
     const TOKEN_KEY = `uploader_token_${slug}`
     let token = localStorage.getItem(TOKEN_KEY)
     if (!token) { token = nanoid(8); localStorage.setItem(TOKEN_KEY, token) }
     setUploaderToken(token)
+
+    const EMAIL_KEY = `reveal_email_${slug}`
+    const savedEmail = localStorage.getItem(EMAIL_KEY)
+    if (savedEmail) setEmailSaved(true)
 
     const isOpen = !event.closes_at || new Date(event.closes_at) > new Date()
     if (!isOpen) { setScreen('closed'); return }
@@ -84,6 +90,7 @@ export default function CameraUI({ event, slug }: Props) {
           file_name: file.name,
           mime_type: file.type,
           file_size_bytes: file.size,
+          guest_email: localStorage.getItem(`reveal_email_${slug}`) ?? undefined,
         }),
       })
 
@@ -155,6 +162,15 @@ export default function CameraUI({ event, slug }: Props) {
   function handleShutterClick() {
     if (screen === 'uploading') return
     inputRef.current?.click()
+  }
+
+  function handleEmailSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    const trimmed = guestEmail.trim()
+    if (!trimmed) { setEmailSaved(true); return }
+    localStorage.setItem(`reveal_email_${slug}`, trimmed)
+    setGuestEmail(trimmed)
+    setEmailSaved(true)
   }
 
   function handleInputChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -245,6 +261,33 @@ export default function CameraUI({ event, slug }: Props) {
             isUploading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-zinc-100',
           ].join(' ')}
         />
+        {event.reveal_at && !emailSaved && new Date(event.reveal_at) > new Date() && (
+          <form onSubmit={handleEmailSubmit} className="w-full mt-2">
+            <p className="text-zinc-500 text-xs text-center mb-2">Receber aviso quando as fotos forem reveladas?</p>
+            <div className="flex gap-2">
+              <input
+                type="email"
+                value={guestEmail}
+                onChange={e => setGuestEmail(e.target.value)}
+                placeholder="seu@email.com"
+                className="flex-1 px-3 py-2 bg-zinc-900 border border-zinc-700 rounded-lg text-white text-sm placeholder-zinc-600 focus:outline-none focus:border-zinc-500"
+              />
+              <button
+                type="submit"
+                className="px-3 py-2 bg-zinc-800 text-white text-sm rounded-lg hover:bg-zinc-700 transition-colors"
+              >
+                Avisar
+              </button>
+            </div>
+            <button
+              type="button"
+              onClick={() => setEmailSaved(true)}
+              className="w-full mt-1 text-zinc-600 text-xs hover:text-zinc-500"
+            >
+              Não, obrigado
+            </button>
+          </form>
+        )}
       </div>
     </div>
   )

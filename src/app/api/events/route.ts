@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient, createServiceClient } from '@/lib/supabase'
 import type { Database } from '@/types/database'
 import { nanoid } from 'nanoid'
-import { sendHostClosureEmail, sendHostNpsEmail } from '@/lib/resend'
+import { sendHostClosureEmail, sendHostNpsEmail, sendRevealEmail } from '@/lib/resend'
 
 type EventRow = Database['public']['Tables']['events']['Row']
 type EventInsert = Database['public']['Tables']['events']['Insert']
@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
   )
 }
 
-type EventWithCount = Pick<EventRow, 'id' | 'slug' | 'name' | 'event_date' | 'shot_cap' | 'reveal_at' | 'closes_at' | 'closes_notified_at' | 'nps_notified_at' | 'created_at'> & {
+type EventWithCount = Pick<EventRow, 'id' | 'slug' | 'name' | 'event_date' | 'shot_cap' | 'reveal_at' | 'closes_at' | 'closes_notified_at' | 'nps_notified_at' | 'reveal_notified_at' | 'created_at'> & {
   photos: { count: number }[]
 }
 
@@ -135,6 +135,37 @@ async function checkAndSendPendingEmails(
       void sendHostNpsEmail(hostEmail, event.name).catch(console.error)
     }
   }
+
+  for (const event of events) {
+    if (!event.reveal_at) continue
+    if (new Date(event.reveal_at) > now) continue
+    if (event.reveal_notified_at !== null) continue
+
+    const { data: claimed, error: revealClaimError } = await serviceClient
+      .from('events')
+      .update({ reveal_notified_at: now.toISOString() })
+      .eq('id', event.id)
+      .is('reveal_notified_at', null)
+      .select('id')
+
+    if (revealClaimError) {
+      console.error('[events] reveal_notified_at update failed:', revealClaimError)
+      continue
+    }
+    if (!claimed || claimed.length === 0) continue
+
+    const { data: guestRows } = await serviceClient
+      .from('photos')
+      .select('guest_email')
+      .eq('event_id', event.id)
+      .not('guest_email', 'is', null)
+
+    const guestEmails = [...new Set((guestRows ?? []).map((r: { guest_email: string }) => r.guest_email))]
+    const allEmails = [hostEmail, ...guestEmails]
+    const galleryUrl = `${APP_URL}/e/${event.slug}/gallery`
+
+    void sendRevealEmail(allEmails, event.name, galleryUrl).catch(console.error)
+  }
 }
 
 export async function GET() {
@@ -144,7 +175,7 @@ export async function GET() {
 
   const { data } = await supabase
     .from('events')
-    .select('id, slug, name, event_date, shot_cap, reveal_at, closes_at, closes_notified_at, nps_notified_at, created_at, photos(count)')
+    .select('id, slug, name, event_date, shot_cap, reveal_at, closes_at, closes_notified_at, nps_notified_at, reveal_notified_at, created_at, photos(count)')
     .eq('host_id', user.id)
     .order('created_at', { ascending: false })
 

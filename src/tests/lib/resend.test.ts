@@ -105,4 +105,66 @@ describe('resend helpers', () => {
       expect(call.html).toContain('&quot;')
     })
   })
+
+  describe('sendRevealEmail', () => {
+    it('returns void and logs warning when RESEND_API_KEY is not set', async () => {
+      delete process.env.RESEND_API_KEY
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+      const { sendRevealEmail } = await import('@/lib/resend')
+      await expect(
+        sendRevealEmail(['a@test.com'], 'Evento', 'https://url')
+      ).resolves.toBeUndefined()
+
+      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('RESEND_API_KEY not set'))
+      warnSpy.mockRestore()
+    })
+
+    it('sends one email per address with correct fields', async () => {
+      process.env.RESEND_API_KEY = 'test-key'
+      vi.doMock('resend', () => ({
+        Resend: class {
+          emails = { send: mockSend }
+        },
+      }))
+
+      const { sendRevealEmail } = await import('@/lib/resend')
+      await sendRevealEmail(['a@test.com', 'b@test.com'], 'Meu Evento', 'https://gallery')
+
+      expect(mockSend).toHaveBeenCalledTimes(2)
+      expect(mockSend).toHaveBeenNthCalledWith(
+        1,
+        expect.objectContaining({
+          to: 'a@test.com',
+          subject: expect.stringContaining('Meu Evento'),
+          html: expect.stringContaining('Meu Evento'),
+        })
+      )
+      expect(mockSend).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({
+          to: 'b@test.com',
+          subject: expect.stringContaining('Meu Evento'),
+          html: expect.stringContaining('Meu Evento'),
+        })
+      )
+    })
+
+    it('HTML escaping works for eventName with special chars', async () => {
+      process.env.RESEND_API_KEY = 'test-key'
+      vi.doMock('resend', () => ({
+        Resend: class {
+          emails = { send: mockSend }
+        },
+      }))
+
+      const { sendRevealEmail } = await import('@/lib/resend')
+      await sendRevealEmail(['a@test.com'], 'Casamento <"XSS">', 'https://gallery')
+
+      const call = mockSend.mock.calls[0][0]
+      expect(call.html).not.toContain('<"XSS">')
+      expect(call.html).toContain('&lt;')
+      expect(call.html).toContain('&quot;')
+    })
+  })
 })

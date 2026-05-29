@@ -82,3 +82,42 @@ export async function sendHostNpsEmail(
     console.error('[resend] sendHostNpsEmail failed:', err)
   }
 }
+
+export async function sendRevealEmail(
+  emails: string[],
+  eventName: string,
+  galleryUrl: string
+): Promise<void> {
+  if (!resend) {
+    console.warn('[resend] RESEND_API_KEY not set — reveal email skipped')
+    return
+  }
+  const name = escapeHtml(eventName)
+  for (const email of emails) {
+    try {
+      await resend.emails.send({
+        from: FROM,
+        to: email,
+        subject: `As fotos do ${name} foram reveladas!`,
+        html: `
+          <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px">
+            <h2 style="color:#111">As fotos estão liberadas! 🎉</h2>
+            <p style="color:#444;font-size:16px">
+              As fotos do evento <strong>${name}</strong> já estão disponíveis na galeria.
+            </p>
+            <a href="${galleryUrl}"
+               style="display:inline-block;margin-top:16px;padding:12px 24px;background:#000;color:#fff;
+                      text-decoration:none;border-radius:6px;font-size:15px">
+              Ver fotos
+            </a>
+            <p style="margin-top:32px;color:#888;font-size:13px">
+              Você recebeu este e-mail porque participou do evento ${name}.
+            </p>
+          </div>
+        `,
+      })
+    } catch (err) {
+      console.error('[resend] sendRevealEmail failed for', email, ':', err)
+    }
+  }
+}

@@ -7,6 +7,7 @@ import Link from 'next/link'
 interface EventSettings {
   name: string
   closes_at: string | null
+  reveal_at: string | null
 }
 
 // datetime-local value format: "YYYY-MM-DDTHH:MM"
@@ -28,6 +29,8 @@ export default function EventSettingsPage() {
   const [name, setName] = useState('')
   const [closesAt, setClosesAt] = useState('')
   const [noCloseDate, setNoCloseDate] = useState(false)
+  const [revealAt, setRevealAt] = useState('')
+  const [noRevealDate, setNoRevealDate] = useState(true)
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState('')
@@ -48,6 +51,13 @@ export default function EventSettingsPage() {
           setClosesAt('')
           setNoCloseDate(true)
         }
+        if (ev.reveal_at) {
+          setRevealAt(toDatetimeLocal(ev.reveal_at))
+          setNoRevealDate(false)
+        } else {
+          setRevealAt('')
+          setNoRevealDate(true)
+        }
       } catch {
         router.push('/dashboard')
       } finally {
@@ -66,7 +76,11 @@ export default function EventSettingsPage() {
       const res = await fetch(`/api/events/${slug}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, closes_at }),
+        body: JSON.stringify({
+          name,
+          closes_at,
+          reveal_at: noRevealDate ? null : fromDatetimeLocal(revealAt),
+        }),
       })
       if (res.ok) {
         router.push(`/events/${slug}`)
@@ -138,6 +152,27 @@ export default function EventSettingsPage() {
               value={closesAt}
               onChange={e => setClosesAt(e.target.value)}
               min={new Date().toISOString().slice(0, 16)}
+              className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-white focus:outline-none focus:border-zinc-500 transition-colors"
+            />
+          )}
+        </div>
+
+        <div>
+          <label className="block text-sm text-zinc-400 mb-2">Data de revelação das fotos</label>
+          <label className="flex items-center gap-2 mb-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={noRevealDate}
+              onChange={e => setNoRevealDate(e.target.checked)}
+              className="w-4 h-4 accent-white"
+            />
+            <span className="text-sm text-zinc-400">Revelar imediatamente</span>
+          </label>
+          {!noRevealDate && (
+            <input
+              type="datetime-local"
+              value={revealAt}
+              onChange={e => setRevealAt(e.target.value)}
               className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-white focus:outline-none focus:border-zinc-500 transition-colors"
             />
           )}

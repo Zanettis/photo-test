@@ -5,7 +5,7 @@ import { NextRequest } from 'next/server'
 // Mock external dependencies before any route imports
 // ---------------------------------------------------------------------------
 
-// Mock @/lib/supabase — both server (auth + RLS) and service (storage) clients
+// Mock @/lib/supabase — both server (auth + RLS) and service (storage + DB) clients
 vi.mock('@/lib/supabase', () => ({
   createServerSupabaseClient: vi.fn(),
   createServiceClient: vi.fn(),
@@ -31,40 +31,9 @@ function makeGalleryRequest(slug: string, limit?: number | string, offset?: numb
   return new NextRequest(url.toString())
 }
 
-/** Produce a chainable Supabase .from() mock for the events table */
-function makeEventFromMock(eventData: object | null) {
-  return {
-    select: vi.fn().mockReturnThis(),
-    eq: vi.fn().mockReturnValue({
-      single: () =>
-        Promise.resolve({
-          data: eventData,
-          error: eventData ? null : { code: 'PGRST116' },
-        }),
-    }),
-  }
-}
-
-/** Produce a chainable Supabase .from() mock for the photos table */
-function makePhotosFromMock(photosData: object[], count: number) {
-  const chain = {
-    select: vi.fn().mockReturnThis(),
-    eq: vi.fn().mockReturnThis(),
-    order: vi.fn().mockReturnThis(),
-    range: vi.fn().mockResolvedValue({ data: photosData, error: null, count }),
-  }
-  return chain
-}
-
 // ---------------------------------------------------------------------------
-// Shared mock state
+// Shared constants
 // ---------------------------------------------------------------------------
-
-let mockAuth: Mock
-let mockFrom: Mock
-let mockGetPublicUrl: Mock
-
-let photosChain: ReturnType<typeof makePhotosFromMock>
 
 const FAKE_USER = { id: 'user-host-1' }
 const FAKE_EVENT = {
@@ -97,6 +66,69 @@ const FAKE_PHOTOS = [
 ]
 
 // ---------------------------------------------------------------------------
+// Mock builders
+// ---------------------------------------------------------------------------
+
+/** Photos chain — tracks calls so we can assert on them */
+function makePhotosChain(photosData: object[], count: number) {
+  return {
+    select: vi.fn().mockReturnThis(),
+    eq: vi.fn().mockReturnThis(),
+    order: vi.fn().mockReturnThis(),
+    range: vi.fn().mockResolvedValue({ data: photosData, error: null, count }),
+  }
+}
+
+/**
+ * Build a service client mock that handles both DB table queries and storage.
+ * The gallery route uses serviceClient for events lookup, photos query, AND storage.
+ */
+function makeServiceClientMock(opts: {
+  eventData: object | null
+  photosData?: object[]
+  photosCount?: number
+  photosChainOverride?: ReturnType<typeof makePhotosChain>
+}) {
+  const { eventData, photosData = FAKE_PHOTOS, photosCount = FAKE_PHOTOS.length, photosChainOverride } = opts
+  const photosChain = photosChainOverride ?? makePhotosChain(photosData, photosCount)
+
+  return {
+    _photosChain: photosChain,
+    from: vi.fn().mockImplementation((table: string) => {
+      if (table === 'events') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnValue({
+            single: () =>
+              Promise.resolve({
+                data: eventData,
+                error: eventData ? null : { code: 'PGRST116' },
+              }),
+          }),
+        }
+      }
+      if (table === 'photos') {
+        return photosChain
+      }
+      throw new Error(`Unexpected table in serviceClient: ${table}`)
+    }),
+    storage: {
+      from: () => ({
+        getPublicUrl: vi.fn().mockReturnValue({
+          data: { publicUrl: 'https://cdn.example.com/photos/test.jpg' },
+        }),
+      }),
+    },
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Shared mock state
+// ---------------------------------------------------------------------------
+
+let mockAuth: Mock
+
+// ---------------------------------------------------------------------------
 // Test suite
 // ---------------------------------------------------------------------------
 
@@ -104,32 +136,16 @@ describe('GET /api/events/[slug]/gallery', () => {
   beforeEach(() => {
     vi.clearAllMocks()
 
-    // Build fresh photos chain so we can spy on it
-    photosChain = makePhotosFromMock(FAKE_PHOTOS, 2)
-
-    // Dispatch .from() calls by table name
-    mockFrom = vi.fn().mockImplementation((table: string) => {
-      if (table === 'events') return makeEventFromMock(FAKE_EVENT)
-      if (table === 'photos') return photosChain
-      throw new Error(`Unexpected table: ${table}`)
-    })
-
     mockAuth = vi.fn().mockResolvedValue({ data: { user: FAKE_USER } })
 
+    // Server client only needs auth — DB queries go through serviceClient
     vi.mocked(createServerSupabaseClient).mockResolvedValue({
       auth: { getUser: mockAuth },
-      from: mockFrom,
     } as any)
 
-    // Service client: storage.from('photos').getPublicUrl(path)
-    mockGetPublicUrl = vi.fn().mockReturnValue({
-      data: { publicUrl: 'https://cdn.example.com/photos/test.jpg' },
-    })
-    vi.mocked(createServiceClient).mockReturnValue({
-      storage: {
-        from: () => ({ getPublicUrl: mockGetPublicUrl }),
-      },
-    } as any)
+    vi.mocked(createServiceClient).mockReturnValue(
+      makeServiceClientMock({ eventData: FAKE_EVENT }) as any
+    )
   })
 
   // -------------------------------------------------------------------------
@@ -168,54 +184,101 @@ describe('GET /api/events/[slug]/gallery', () => {
   })
 
   // -------------------------------------------------------------------------
-  // Test 2: Unauthenticated → 401
+  // Test 2: Unauthenticated user can see a revealed gallery (reveal_at=null)
   // -------------------------------------------------------------------------
-  it('unauthenticated: returns 401 when no session exists', async () => {
+  it('unauthenticated: returns 200 for a revealed event (reveal_at is null)', async () => {
     mockAuth.mockResolvedValue({ data: { user: null } })
 
     const req = makeGalleryRequest('wedding-2026')
     const res = await GET(req, { params: Promise.resolve({ slug: 'wedding-2026' }) })
 
-    expect(res.status).toBe(401)
+    // reveal_at is null => is_revealed = true, so unauthenticated user gets access
+    expect(res.status).toBe(200)
   })
 
   // -------------------------------------------------------------------------
-  // Test 3: Event not found (RLS) → 403
+  // Test 3: Unauthenticated user blocked from unrevealed gallery
   // -------------------------------------------------------------------------
-  it('event not found (RLS): returns 403 when event is not visible to the user', async () => {
-    mockFrom.mockImplementation((table: string) => {
-      if (table === 'events') return makeEventFromMock(null)
-      if (table === 'photos') return photosChain
-      throw new Error(`Unexpected table: ${table}`)
-    })
+  it('unauthenticated: returns 403 for an unrevealed event (reveal_at in the future)', async () => {
+    const futureRevealAt = new Date(Date.now() + 86400_000).toISOString()
+    const unrevealedEvent = { ...FAKE_EVENT, reveal_at: futureRevealAt }
+
+    vi.mocked(createServiceClient).mockReturnValue(
+      makeServiceClientMock({ eventData: unrevealedEvent }) as any
+    )
+    mockAuth.mockResolvedValue({ data: { user: null } })
 
     const req = makeGalleryRequest('wedding-2026')
     const res = await GET(req, { params: Promise.resolve({ slug: 'wedding-2026' }) })
 
     expect(res.status).toBe(403)
+    const body = await res.json()
+    expect(body.error).toBe('not_revealed')
+    expect(body.is_revealed).toBe(false)
   })
 
   // -------------------------------------------------------------------------
-  // Test 4: Wrong host_id → 403
+  // Test 4: Host can see own unrevealed gallery
   // -------------------------------------------------------------------------
-  it("wrong host_id: returns 403 when the event belongs to a different host", async () => {
-    const otherHostEvent = { ...FAKE_EVENT, host_id: 'other-user' }
-    mockFrom.mockImplementation((table: string) => {
-      if (table === 'events') return makeEventFromMock(otherHostEvent)
-      if (table === 'photos') return photosChain
-      throw new Error(`Unexpected table: ${table}`)
-    })
+  it('host: returns 200 for own unrevealed event (reveal_at in the future)', async () => {
+    const futureRevealAt = new Date(Date.now() + 86400_000).toISOString()
+    const unrevealedEvent = { ...FAKE_EVENT, reveal_at: futureRevealAt, host_id: FAKE_USER.id }
+
+    vi.mocked(createServiceClient).mockReturnValue(
+      makeServiceClientMock({ eventData: unrevealedEvent }) as any
+    )
 
     const req = makeGalleryRequest('wedding-2026')
     const res = await GET(req, { params: Promise.resolve({ slug: 'wedding-2026' }) })
 
-    expect(res.status).toBe(403)
+    // Authenticated host always bypasses reveal gate
+    expect(res.status).toBe(200)
   })
 
   // -------------------------------------------------------------------------
-  // Test 5: limit=-1 sanitized to 1 → range called with (0, 0)
+  // Test 5: Event not found → 404
+  // -------------------------------------------------------------------------
+  it('event not found: returns 404 when event does not exist', async () => {
+    vi.mocked(createServiceClient).mockReturnValue(
+      makeServiceClientMock({ eventData: null }) as any
+    )
+
+    const req = makeGalleryRequest('no-such-event')
+    const res = await GET(req, { params: Promise.resolve({ slug: 'no-such-event' }) })
+
+    expect(res.status).toBe(404)
+  })
+
+  // -------------------------------------------------------------------------
+  // Test 6: Non-host authenticated user blocked from unrevealed gallery
+  // Security check: isHost uses strict === comparison (user.id === event.host_id)
+  // -------------------------------------------------------------------------
+  it('non-host: returns 403 for unrevealed event owned by another host', async () => {
+    const futureRevealAt = new Date(Date.now() + 86400_000).toISOString()
+    const otherHostEvent = { ...FAKE_EVENT, reveal_at: futureRevealAt, host_id: 'other-user-id' }
+
+    vi.mocked(createServiceClient).mockReturnValue(
+      makeServiceClientMock({ eventData: otherHostEvent }) as any
+    )
+
+    const req = makeGalleryRequest('wedding-2026')
+    const res = await GET(req, { params: Promise.resolve({ slug: 'wedding-2026' }) })
+
+    // Strict ===: FAKE_USER.id !== 'other-user-id', so not a host
+    expect(res.status).toBe(403)
+    const body = await res.json()
+    expect(body.error).toBe('not_revealed')
+  })
+
+  // -------------------------------------------------------------------------
+  // Test 7: limit=-1 sanitized to 1 → range called with (0, 0)
   // -------------------------------------------------------------------------
   it('limit=-1 sanitized to 1: range called with (0, 0)', async () => {
+    const photosChain = makePhotosChain(FAKE_PHOTOS, 2)
+    vi.mocked(createServiceClient).mockReturnValue(
+      makeServiceClientMock({ eventData: FAKE_EVENT, photosChainOverride: photosChain }) as any
+    )
+
     const req = makeGalleryRequest('wedding-2026', -1)
     const res = await GET(req, { params: Promise.resolve({ slug: 'wedding-2026' }) })
 
@@ -225,9 +288,14 @@ describe('GET /api/events/[slug]/gallery', () => {
   })
 
   // -------------------------------------------------------------------------
-  // Test 6: limit=NaN (non-numeric string) sanitized to DEFAULT 50 → range(0, 49)
+  // Test 8: limit=NaN (non-numeric string) sanitized to DEFAULT 50 → range(0, 49)
   // -------------------------------------------------------------------------
   it('limit=NaN sanitized to DEFAULT 50: range called with (0, 49)', async () => {
+    const photosChain = makePhotosChain(FAKE_PHOTOS, 2)
+    vi.mocked(createServiceClient).mockReturnValue(
+      makeServiceClientMock({ eventData: FAKE_EVENT, photosChainOverride: photosChain }) as any
+    )
+
     const req = makeGalleryRequest('wedding-2026', 'abc')
     const res = await GET(req, { params: Promise.resolve({ slug: 'wedding-2026' }) })
 
@@ -237,9 +305,14 @@ describe('GET /api/events/[slug]/gallery', () => {
   })
 
   // -------------------------------------------------------------------------
-  // Test 7: offset=-5 sanitized to 0 → range called with (0, limit-1)
+  // Test 9: offset=-5 sanitized to 0 → range called with (0, limit-1)
   // -------------------------------------------------------------------------
   it('offset=-5 sanitized to 0: range called with (0, limit-1)', async () => {
+    const photosChain = makePhotosChain(FAKE_PHOTOS, 2)
+    vi.mocked(createServiceClient).mockReturnValue(
+      makeServiceClientMock({ eventData: FAKE_EVENT, photosChainOverride: photosChain }) as any
+    )
+
     const req = makeGalleryRequest('wedding-2026', undefined, -5)
     const res = await GET(req, { params: Promise.resolve({ slug: 'wedding-2026' }) })
 
@@ -249,14 +322,18 @@ describe('GET /api/events/[slug]/gallery', () => {
   })
 
   // -------------------------------------------------------------------------
-  // Test 8: is_flagged filter applied → eq called with ('is_flagged', false)
+  // Test 10: is_flagged filter applied → eq called with ('is_flagged', false)
   // -------------------------------------------------------------------------
   it('is_flagged filter applied: eq called with (is_flagged, false)', async () => {
+    const photosChain = makePhotosChain(FAKE_PHOTOS, 2)
+    vi.mocked(createServiceClient).mockReturnValue(
+      makeServiceClientMock({ eventData: FAKE_EVENT, photosChainOverride: photosChain }) as any
+    )
+
     const req = makeGalleryRequest('wedding-2026')
     const res = await GET(req, { params: Promise.resolve({ slug: 'wedding-2026' }) })
 
     expect(res.status).toBe(200)
-    // The photos chain should have had .eq('is_flagged', false) called on it
     expect(photosChain.eq).toHaveBeenCalledWith('is_flagged', false)
   })
 })

@@ -93,6 +93,7 @@ export interface Database {
           storage_path: string
           uploader_token: string
           uploader_ip: string | null
+          guest_email: string | null
           tags: string[] | null
           embedding: number[] | null
           tagging_status: 'pending' | 'done' | 'failed'
@@ -107,6 +108,7 @@ export interface Database {
           storage_path: string
           uploader_token: string
           uploader_ip?: string | null
+          guest_email?: string | null
           tags?: string[] | null
           embedding?: number[] | null
           tagging_status?: 'pending' | 'done' | 'failed'
@@ -121,6 +123,7 @@ export interface Database {
           storage_path?: string
           uploader_token?: string
           uploader_ip?: string | null
+          guest_email?: string | null
           tags?: string[] | null
           embedding?: number[] | null
           tagging_status?: 'pending' | 'done' | 'failed'
