@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Settings } from 'lucide-react'
+import { Settings, Download } from 'lucide-react'
 import { PhotoGrid } from '@/components/photo-grid'
 import { DeletePhotoDialog } from '@/components/delete-photo-dialog'
 
@@ -167,14 +167,25 @@ export default function EventDetailPage() {
           )}
         </div>
         {event && (
-          <Link
-            href={`/events/${slug}/settings`}
-            className="flex items-center gap-1.5 text-zinc-400 hover:text-white text-sm transition-colors shrink-0 mt-0.5"
-            title="Configurações do evento"
-          >
-            <Settings size={16} />
-            <span className="hidden sm:inline">Configurações</span>
-          </Link>
+          <div className="flex items-center gap-3 shrink-0 mt-0.5">
+            <a
+              href={`/api/events/${slug}/download-zip`}
+              download
+              className="flex items-center gap-1.5 border border-zinc-700 text-zinc-400 hover:text-white hover:border-zinc-500 text-sm transition-colors rounded-md px-3 py-1.5"
+              title="Baixar todas as fotos"
+            >
+              <Download size={16} />
+              <span className="hidden sm:inline">Baixar ZIP</span>
+            </a>
+            <Link
+              href={`/events/${slug}/settings`}
+              className="flex items-center gap-1.5 text-zinc-400 hover:text-white text-sm transition-colors"
+              title="Configurações do evento"
+            >
+              <Settings size={16} />
+              <span className="hidden sm:inline">Configurações</span>
+            </Link>
+          </div>
         )}
       </div>
 
