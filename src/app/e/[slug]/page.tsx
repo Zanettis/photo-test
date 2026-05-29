@@ -7,15 +7,21 @@ type EventRow = Database['public']['Tables']['events']['Row']
 
 export default async function GuestPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params
-  const supabase = createServiceClient()
 
-  const { data: event } = await supabase
-    .from('events')
-    .select('*')
-    .eq('slug', slug)
-    .single()
+  let event: EventRow | null = null
+  try {
+    const supabase = createServiceClient()
+    const { data } = await supabase
+      .from('events')
+      .select('*')
+      .eq('slug', slug)
+      .single()
+    event = data as EventRow | null
+  } catch {
+    notFound()
+  }
 
   if (!event) notFound()
 
-  return <CameraUI event={event as EventRow} slug={slug} />
+  return <CameraUI event={event} slug={slug} />
 }

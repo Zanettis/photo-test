@@ -24,6 +24,8 @@ function formatCountdown(target: Date): string {
 
 export default function CameraUI({ event, slug }: Props) {
   const inputRef = useRef<HTMLInputElement>(null)
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const streamRef = useRef<MediaStream | null>(null)
   const [screen, setScreen] = useState<Screen>('camera')
   const [uploaderToken, setUploaderToken] = useState<string | null>(null)
   const [shotsRemaining, setShotsRemaining] = useState<number | null>(null)
@@ -32,6 +34,8 @@ export default function CameraUI({ event, slug }: Props) {
   const [countdown, setCountdown] = useState<string | null>(null)
   const [guestEmail, setGuestEmail] = useState('')
   const [emailSaved, setEmailSaved] = useState(false)
+  const [cameraReady, setCameraReady] = useState(false)
+  const [cameraError, setCameraError] = useState<string | null>(null)
 
   useEffect(() => {
     const TOKEN_KEY = `uploader_token_${slug}`
@@ -46,6 +50,37 @@ export default function CameraUI({ event, slug }: Props) {
     const isOpen = !event.closes_at || new Date(event.closes_at) > new Date()
     if (!isOpen) { setScreen('closed'); return }
   }, [slug, event.closes_at])
+
+  useEffect(() => {
+    if (screen !== 'camera') {
+      streamRef.current?.getTracks().forEach(t => t.stop())
+      streamRef.current = null
+      setCameraReady(false)
+      return
+    }
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setCameraError('Câmera não suportada neste browser.')
+      return
+    }
+    navigator.mediaDevices
+      .getUserMedia({ video: { facingMode: 'environment' }, audio: false })
+      .then(stream => {
+        streamRef.current = stream
+        if (videoRef.current) videoRef.current.srcObject = stream
+        setCameraReady(true)
+        setCameraError(null)
+      })
+      .catch(err => {
+        const msg = (err as DOMException).name === 'NotAllowedError'
+          ? 'Permissão negada. Use o botão abaixo para selecionar da galeria.'
+          : 'Câmera indisponível. Use o botão abaixo para selecionar da galeria.'
+        setCameraError(msg)
+      })
+    return () => {
+      streamRef.current?.getTracks().forEach(t => t.stop())
+      streamRef.current = null
+    }
+  }, [screen])
 
   useEffect(() => {
     if (!event.reveal_at) return
@@ -161,7 +196,19 @@ export default function CameraUI({ event, slug }: Props) {
 
   function handleShutterClick() {
     if (screen === 'uploading') return
-    inputRef.current?.click()
+    if (cameraReady && videoRef.current) {
+      const video = videoRef.current
+      const canvas = document.createElement('canvas')
+      canvas.width = video.videoWidth
+      canvas.height = video.videoHeight
+      canvas.getContext('2d')?.drawImage(video, 0, 0)
+      canvas.toBlob(blob => {
+        if (!blob) return
+        handleFileSelected(new File([blob], `photo-${Date.now()}.jpg`, { type: 'image/jpeg' }))
+      }, 'image/jpeg', 0.9)
+    } else {
+      inputRef.current?.click()
+    }
   }
 
   function handleEmailSubmit(e: React.FormEvent) {
@@ -234,11 +281,23 @@ export default function CameraUI({ event, slug }: Props) {
 
       <div className="relative w-full max-w-sm aspect-[3/4] my-4">
         <div className="absolute inset-0 rounded-lg overflow-hidden bg-zinc-950 border border-zinc-800">
-          {isUploading ? (
-            <div className="absolute inset-0 flex items-center justify-center">
+          <video
+            ref={videoRef}
+            autoPlay
+            playsInline
+            muted
+            className="absolute inset-0 w-full h-full object-cover"
+          />
+          {isUploading && (
+            <div className="absolute inset-0 flex items-center justify-center bg-black/50">
               <div className="w-10 h-10 border-2 border-zinc-600 border-t-white rounded-full animate-spin" />
             </div>
-          ) : null}
+          )}
+          {cameraError && (
+            <div className="absolute inset-0 flex items-center justify-center p-4">
+              <p className="text-zinc-400 text-sm text-center">{cameraError}</p>
+            </div>
+          )}
         </div>
         <div className="absolute top-2 left-2 w-6 h-6 border-t-2 border-l-2 border-zinc-600 rounded-tl" />
         <div className="absolute top-2 right-2 w-6 h-6 border-t-2 border-r-2 border-zinc-600 rounded-tr" />
@@ -250,6 +309,14 @@ export default function CameraUI({ event, slug }: Props) {
         {error && <p className="text-red-400 text-sm text-center">{error}</p>}
         {isUploading && (
           <p className="text-zinc-400 text-sm font-mono">Enviando...</p>
+        )}
+        {cameraError && (
+          <button
+            onClick={() => inputRef.current?.click()}
+            className="text-zinc-400 text-sm underline"
+          >
+            Selecionar da galeria
+          </button>
         )}
         <button
           onClick={handleShutterClick}
