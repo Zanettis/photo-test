@@ -1,4 +1,4 @@
-import { createServerSupabaseClient } from '@/lib/supabase'
+import { createServerSupabaseClient, createServiceClient } from '@/lib/supabase'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { QrCode } from 'lucide-react'
@@ -13,7 +13,6 @@ interface EventRow {
   closes_at: string | null
   reveal_at: string | null
   cover_image_path: string | null
-  photos: { count: number }[]
 }
 
 function getTimeRemaining(closesAt: string | null, eventDate: string): string {
@@ -52,7 +51,7 @@ export default async function DashboardPage() {
 
   const { data, error } = await supabase
     .from('events')
-    .select('id, slug, name, event_date, closes_at, reveal_at, cover_image_path, photos(count)')
+    .select('id, slug, name, event_date, closes_at, reveal_at, cover_image_path')
     .eq('host_id', user.id)
     .order('event_date', { ascending: false })
 
@@ -62,6 +61,22 @@ export default async function DashboardPage() {
 
   const active = events.filter(isActive)
   const albums = events.filter(e => !isActive(e))
+
+  // Fetch photo counts for album events using service role to bypass RLS on photos table
+  const photoCountMap: Record<string, number> = {}
+  if (albums.length > 0) {
+    const serviceClient = createServiceClient()
+    const counts = await Promise.all(
+      albums.map(e =>
+        serviceClient
+          .from('photos')
+          .select('*', { count: 'exact', head: true })
+          .eq('event_id', e.id)
+          .then(({ count }) => [e.id, count ?? 0] as [string, number])
+      )
+    )
+    counts.forEach(([id, count]) => { photoCountMap[id] = count })
+  }
 
   return (
     <div className="px-5 pt-10 pb-4">
@@ -108,7 +123,7 @@ export default async function DashboardPage() {
                 slug={event.slug}
                 name={event.name}
                 eventDate={event.event_date}
-                photoCount={event.photos?.[0]?.count ?? 0}
+                photoCount={photoCountMap[event.id] ?? 0}
                 coverImageUrl={getCoverUrl(supabase, event.cover_image_path)}
               />
             ))}
@@ -116,8 +131,16 @@ export default async function DashboardPage() {
         </section>
       )}
 
+      {/* Error state */}
+      {error && (
+        <div className="flex flex-col items-center justify-center py-20 gap-4 text-center">
+          <p className="text-red-400 text-sm">Erro ao carregar eventos.</p>
+          <p className="text-zinc-600 text-xs font-mono break-all max-w-xs">{error.message}</p>
+        </div>
+      )}
+
       {/* Empty state */}
-      {events.length === 0 && (
+      {!error && events.length === 0 && (
         <div className="flex flex-col items-center justify-center py-20 gap-4 text-center">
           <p className="text-zinc-600 text-sm">Nenhum evento ainda.</p>
           <Link href="/events/new" className="text-white text-sm underline underline-offset-2">
