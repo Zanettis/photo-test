@@ -12,7 +12,6 @@ interface EventRow {
   event_date: string
   closes_at: string | null
   reveal_at: string | null
-  cover_image_path: string | null
 }
 
 function getTimeRemaining(closesAt: string | null, eventDate: string): string {
@@ -37,21 +36,16 @@ function isActive(event: EventRow): boolean {
   return true
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function getCoverUrl(supabase: any, path: string | null): string | null {
-  if (!path) return null
-  if (path.startsWith('/')) return path
-  return supabase.storage.from('photos').getPublicUrl(path).data.publicUrl
-}
-
 export default async function DashboardPage() {
   const supabase = await createServerSupabaseClient()
-  const { data: { user } } = await supabase.auth.getUser()
+
+  const { data: authData } = await supabase.auth.getUser()
+  const user = authData?.user
   if (!user) redirect('/login')
 
   const { data, error } = await supabase
     .from('events')
-    .select('id, slug, name, event_date, closes_at, reveal_at, cover_image_path')
+    .select('id, slug, name, event_date, closes_at, reveal_at')
     .eq('host_id', user.id)
     .order('event_date', { ascending: false })
 
@@ -88,7 +82,7 @@ export default async function DashboardPage() {
                 name={event.name}
                 eventDate={event.event_date}
                 closesAt={event.closes_at}
-                coverImageUrl={getCoverUrl(supabase, event.cover_image_path)}
+                coverImageUrl={null}
                 timeRemaining={getTimeRemaining(event.closes_at, event.event_date)}
               />
             ))}
@@ -108,7 +102,7 @@ export default async function DashboardPage() {
                 name={event.name}
                 eventDate={event.event_date}
                 photoCount={0}
-                coverImageUrl={getCoverUrl(supabase, event.cover_image_path)}
+                coverImageUrl={null}
               />
             ))}
           </div>
