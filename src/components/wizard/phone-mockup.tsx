@@ -18,7 +18,7 @@ export function PhoneMockup({ eventName, eventDate, shotCap, coverPreview }: Pro
   const shotStr = shotCap ? `${shotCap} fotos por pessoa` : 'Fotos ilimitadas'
 
   return (
-    <div className="mx-auto" style={{ width: 180, height: 320 }}>
+    <div className="mx-auto" style={{ width: 220, height: 390 }}>
       <div className="relative w-full h-full rounded-[2rem] border-[3px] border-zinc-700 bg-zinc-900 overflow-hidden shadow-2xl">
         {/* Notch */}
         <div className="absolute top-2 left-1/2 -translate-x-1/2 w-10 h-1 bg-zinc-700 rounded-full z-10" />

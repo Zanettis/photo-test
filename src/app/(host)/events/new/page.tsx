@@ -1,5 +1,5 @@
 'use client'
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { WizardShell } from '@/components/wizard/wizard-shell'
 import { SuggestionChips } from '@/components/wizard/suggestion-chips'
@@ -9,6 +9,7 @@ import { useWizardState } from '@/hooks/use-wizard-state'
 import { GUEST_TIERS, calcEventPrice, unlimitedPhotosAddon, formatPrice } from '@/lib/pricing'
 import { COVER_PRESETS } from '@/lib/cover-presets'
 import { cn } from '@/lib/utils'
+import { Sparkles, Eye } from 'lucide-react'
 
 const NAME_SUGGESTIONS = ['Casamento', 'Aniversário', 'Formatura', 'Churrasco', 'Confraternização']
 
@@ -73,6 +74,13 @@ export default function NewEventPage() {
   const [coverImageFile, setCoverImageFile] = useState<File | null>(null)
   const [step5Loading, setStep5Loading] = useState(false)
   const [step5Error, setStep5Error] = useState<string | null>(null)
+  const [showCoverPicker, setShowCoverPicker] = useState(false)
+
+  useEffect(() => {
+    if (!selectedCover && COVER_PRESETS.length > 0) {
+      setSelectedCover(COVER_PRESETS[0])
+    }
+  }, [])
 
   function handleNameNext() {
     if (!data.name?.trim()) { setNameError('Dá um nome pra festa primeiro'); return }
@@ -464,27 +472,66 @@ export default function NewEventPage() {
 
   // W5 — Design da capa
   return (
-    <WizardShell
-      currentStep={5} totalSteps={5}
-      onBack={prevStep}
-      onExit={() => router.push('/dashboard')}
-      cta={
-        <button
-          onClick={handleDesignSubmit}
-          disabled={!selectedCover || step5Loading}
-          className="px-6 py-3 bg-white text-black font-semibold rounded-2xl disabled:opacity-30 disabled:cursor-not-allowed transition-opacity flex items-center gap-2"
-        >
-          {step5Loading ? 'Criando...' : 'Criar evento'}
-        </button>
-      }
-    >
-      <div className="flex flex-col gap-5 pt-6 pb-4 overflow-y-auto">
-        <div>
-          <h1 className="text-3xl font-bold text-white leading-tight">Design do seu evento.</h1>
-          <p className="text-zinc-500 mt-2 text-sm">Escolha a foto de capa que seus convidados vão ver.</p>
-        </div>
+    <>
+      <WizardShell
+        currentStep={5} totalSteps={5}
+        onBack={prevStep}
+        onExit={() => router.push('/dashboard')}
+        cta={
+          <button
+            onClick={handleDesignSubmit}
+            disabled={!selectedCover || step5Loading}
+            className="px-6 py-3 bg-white text-black font-semibold rounded-2xl disabled:opacity-30 disabled:cursor-not-allowed transition-opacity flex items-center gap-2"
+          >
+            {step5Loading ? 'Criando...' : 'Criar evento →'}
+          </button>
+        }
+      >
+        <div className="flex flex-col h-full pt-4 pb-2">
+          <div className="mb-4">
+            <h1 className="text-3xl font-bold text-white leading-tight">Design do seu evento.</h1>
+            <p className="text-zinc-500 mt-2 text-sm leading-relaxed">
+              Essa capa é a primeira coisa que seus convidados vão ver.
+            </p>
+          </div>
 
+          <div className="flex-1 flex items-center justify-center py-2">
+            <PhoneMockup
+              eventName={data.name ?? ''}
+              eventDate={data.event_date ?? ''}
+              shotCap={data.shot_cap ?? null}
+              coverPreview={selectedCover}
+            />
+          </div>
+
+          <div className="flex gap-3 pb-2">
+            <button
+              type="button"
+              onClick={() => setShowCoverPicker(true)}
+              className="flex items-center gap-2 px-5 py-2.5 bg-zinc-800 hover:bg-zinc-700 text-white text-sm font-medium rounded-full transition-colors"
+            >
+              <Sparkles size={14} />
+              Editar Capa
+            </button>
+            <button
+              type="button"
+              disabled
+              className="flex items-center gap-2 px-5 py-2.5 bg-zinc-800 text-zinc-500 text-sm font-medium rounded-full cursor-default"
+            >
+              <Eye size={14} />
+              Preview
+            </button>
+          </div>
+
+          {(error || step5Error) && (
+            <p className="text-red-400 text-sm pb-2">{step5Error ?? error}</p>
+          )}
+        </div>
+      </WizardShell>
+
+      {showCoverPicker && (
         <CoverPicker
+          mode="sheet"
           presetPaths={COVER_PRESETS}
           selected={selectedCover}
           onSelectPreset={path => {
@@ -495,19 +542,9 @@ export default function NewEventPage() {
             setCoverImageFile(file)
             setSelectedCover(blobUrl)
           }}
+          onClose={() => setShowCoverPicker(false)}
         />
-
-        <PhoneMockup
-          eventName={data.name ?? ''}
-          eventDate={data.event_date ?? ''}
-          shotCap={data.shot_cap ?? null}
-          coverPreview={selectedCover}
-        />
-
-        {(error || step5Error) && (
-          <p className="text-red-400 text-sm">{step5Error ?? error}</p>
-        )}
-      </div>
-    </WizardShell>
+      )}
+    </>
   )
 }

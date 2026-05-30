@@ -1,6 +1,6 @@
 'use client'
 import { useRef } from 'react'
-import { Camera, Check } from 'lucide-react'
+import { Camera, Check, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface Props {
@@ -8,11 +8,12 @@ interface Props {
   selected: string | null
   onSelectPreset: (path: string) => void
   onSelectFile: (file: File, blobUrl: string) => void
+  mode?: 'grid' | 'sheet'
+  onClose?: () => void
 }
 
-export function CoverPicker({ presetPaths, selected, onSelectPreset, onSelectFile }: Props) {
+export function CoverPicker({ presetPaths, selected, onSelectPreset, onSelectFile, mode = 'grid', onClose }: Props) {
   const fileInputRef = useRef<HTMLInputElement>(null)
-
   const isCustomSelected = selected !== null && !presetPaths.includes(selected)
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -21,9 +22,10 @@ export function CoverPicker({ presetPaths, selected, onSelectPreset, onSelectFil
     e.target.value = ''
     const blobUrl = URL.createObjectURL(file)
     onSelectFile(file, blobUrl)
+    onClose?.()
   }
 
-  return (
+  const grid = (
     <div className="grid grid-cols-3 gap-2">
       {/* Upload from gallery */}
       <button
@@ -51,14 +53,13 @@ export function CoverPicker({ presetPaths, selected, onSelectPreset, onSelectFil
         )}
       </button>
 
-      {/* Preset photos */}
       {presetPaths.map((path) => {
         const isSelected = selected === path
         return (
           <button
             key={path}
             type="button"
-            onClick={() => onSelectPreset(path)}
+            onClick={() => { onSelectPreset(path); onClose?.() }}
             className={cn(
               'aspect-[3/4] rounded-xl overflow-hidden relative border-2 transition-all',
               isSelected ? 'border-white' : 'border-transparent'
@@ -89,6 +90,34 @@ export function CoverPicker({ presetPaths, selected, onSelectPreset, onSelectFil
         className="hidden"
         onChange={handleFileChange}
       />
+    </div>
+  )
+
+  if (mode === 'grid') return grid
+
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col justify-end">
+      {/* backdrop */}
+      <div className="absolute inset-0 bg-black/60" onClick={onClose} />
+
+      {/* sheet */}
+      <div className="relative bg-zinc-950 rounded-t-3xl px-6 pt-4 pb-8">
+        {/* handle */}
+        <div className="mx-auto w-10 h-1 bg-zinc-700 rounded-full mb-5" />
+
+        <div className="flex items-center justify-between mb-4">
+          <p className="text-white font-semibold text-base">Escolha uma capa</p>
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-7 h-7 rounded-full bg-zinc-800 flex items-center justify-center"
+          >
+            <X size={14} className="text-zinc-400" />
+          </button>
+        </div>
+
+        {grid}
+      </div>
     </div>
   )
 }
