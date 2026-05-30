@@ -51,12 +51,13 @@ export default async function DashboardPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('events')
     .select('id, slug, name, event_date, closes_at, reveal_at, cover_image_path, photos(id, storage_path)')
     .eq('host_id', user.id)
     .order('event_date', { ascending: false })
-    .limit(3, { foreignTable: 'photos' })
+
+  if (error) console.error('[dashboard] supabase error:', error)
 
   const events = (data ?? []) as EventRow[]
 
@@ -103,7 +104,7 @@ export default async function DashboardPage() {
           <p className="text-zinc-500 text-xs font-semibold uppercase tracking-widest mb-4">Albums</p>
           <div className="flex flex-col gap-8">
             {albums.map(event => {
-              const thumbUrls = event.photos.map(p =>
+              const thumbUrls = event.photos.slice(0, 3).map(p =>
                 supabase.storage.from('photos').getPublicUrl(p.storage_path).data.publicUrl
               )
               return (
