@@ -1,4 +1,4 @@
-import { createServerSupabaseClient, createServiceClient } from '@/lib/supabase'
+import { createServerSupabaseClient } from '@/lib/supabase'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { QrCode } from 'lucide-react'
@@ -62,22 +62,6 @@ export default async function DashboardPage() {
   const active = events.filter(isActive)
   const albums = events.filter(e => !isActive(e))
 
-  // Fetch photo counts for album events using service role to bypass RLS on photos table
-  const photoCountMap: Record<string, number> = {}
-  if (albums.length > 0) {
-    const serviceClient = createServiceClient()
-    const counts = await Promise.all(
-      albums.map(e =>
-        serviceClient
-          .from('photos')
-          .select('*', { count: 'exact', head: true })
-          .eq('event_id', e.id)
-          .then(({ count }) => [e.id, count ?? 0] as [string, number])
-      )
-    )
-    counts.forEach(([id, count]) => { photoCountMap[id] = count })
-  }
-
   return (
     <div className="px-5 pt-10 pb-4">
       {/* Header */}
@@ -123,7 +107,7 @@ export default async function DashboardPage() {
                 slug={event.slug}
                 name={event.name}
                 eventDate={event.event_date}
-                photoCount={photoCountMap[event.id] ?? 0}
+                photoCount={0}
                 coverImageUrl={getCoverUrl(supabase, event.cover_image_path)}
               />
             ))}
