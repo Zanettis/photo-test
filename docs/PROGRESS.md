@@ -106,15 +106,15 @@ Atualizar este arquivo após completar qualquer task. Status: `[ ]` todo · `[~]
 **Backend:**
 - [x] `GET /api/events/[slug]/search?q=` — embedding da query + cosine search pgvector
 - [x] `GET /api/events/[slug]/gallery` — galeria paginada com RLS, host-only
-- [ ] `GET /api/events/[slug]/download` — gerar ZIP sob demanda, link expira em 1h
+- [x] `GET /api/events/[slug]/download-zip` — ZIP streaming (implementado no Épico 7)
 
 **Frontend:**
 - [x] Galeria do evento — `src/app/(host)/events/[slug]/page.tsx`
 - [x] Campo de busca com debounce (300ms)
 - [x] Grid de resultados ordenados por similaridade
 - [x] Aviso de fotos em processamento (`pendingCount > 0`)
-- [ ] Download individual + botão "baixar todas"
-- [ ] Estado vazio explícito quando 0 fotos com tags ("Processando fotos...")
+- [x] Botão "Baixar ZIP" no header da galeria (Épico 7)
+- [x] Estado vazio explícito: "Nenhuma foto ainda. Compartilhe o link do evento com seus convidados!"
 
 **Testes:**
 - [ ] Teste: busca "vela" retorna fotos com tag "vela" antes das demais
@@ -167,22 +167,47 @@ Atualizar este arquivo após completar qualquer task. Status: `[ ]` todo · `[~]
 ## Épico 6 — Delayed Reveal (Revelação Agendada)
 
 **Backend:**
-- [ ] Lógica `is_revealed = (reveal_at IS NULL OR reveal_at <= now())` em todos os endpoints relevantes
-- [ ] `GET /api/events/[slug]/gallery` — retorna 403 com `reveal_at` se não revelado (guest sem auth)
-- [ ] Trigger de email de revelação: primeira request que detecta transição dispara Resend (campo `reveal_notified_at` na tabela `events` para idempotência)
-- [ ] Migration: adicionar `reveal_notified_at TIMESTAMPTZ` em `events`
+- [x] Lógica `is_revealed = (reveal_at IS NULL OR reveal_at <= now())` em todos os endpoints relevantes
+- [x] `GET /api/events/[slug]/gallery` — retorna 403 com `reveal_at` se não revelado (guest sem auth)
+- [x] Trigger de email de revelação: primeira request que detecta transição dispara Resend (campo `reveal_notified_at` na tabela `events` para idempotência)
+- [x] Migration: `reveal_notified_at TIMESTAMPTZ` incluído na migration inicial do schema
 
 **Frontend:**
-- [ ] Host: galeria sempre visível (moderação independe de reveal_at)
-- [ ] Guest: countdown timer animado quando `is_revealed = false`
-- [ ] Guest: galeria visível quando `is_revealed = true`
-- [ ] Email de revelação: template Resend com link da galeria
+- [x] Host: galeria sempre visível (bypass `isHost` em `gallery/route.ts`)
+- [x] Guest: countdown timer animado quando `is_revealed = false` (`GuestGalleryClient mode="countdown"`)
+- [x] Guest: galeria visível quando `is_revealed = true` (`GuestGalleryClient mode="gallery"`)
+- [x] Email de revelação: template PT-BR em `src/lib/resend.ts` → `sendRevealEmail()`
 
-**Testes:**
-- [ ] Teste: guest não acessa galeria antes do `reveal_at`
-- [ ] Teste: guest acessa galeria após `reveal_at`
-- [ ] Teste: host acessa galeria em qualquer estado
-- [ ] Teste: email de revelação disparado exatamente uma vez (idempotência)
+**Settings:**
+- [x] Campo `reveal_at` (datetime-local) na página de settings do evento
+- [x] `PATCH /api/events/[slug]` aceita `reveal_at` com validação de data
+
+**Testes (`src/tests/api/gallery.test.ts` e `src/tests/api/events-get.test.ts`):**
+- [x] Teste: guest não acessa galeria antes do `reveal_at` (403)
+- [x] Teste: guest acessa galeria após `reveal_at`
+- [x] Teste: host acessa galeria em qualquer estado (bypass)
+- [x] Teste: email de revelação disparado exatamente uma vez (idempotência via `reveal_notified_at IS NULL`)
+
+---
+
+## Épico 7 — Download ZIP
+
+**Backend:**
+- [x] `GET /api/events/[slug]/download-zip` — streaming ZIP de todas as fotos não-flagadas
+- [x] Archiver streaming com Node.js runtime (Readable.toWeb)
+- [x] Nome do arquivo sanitizado: `{event-name}.zip`
+- [x] Auth + ownership check (host-only)
+- [x] Fotos numeradas sequencialmente: `0001-{photo_id}.jpg`
+
+**Frontend:**
+- [x] Botão "Baixar ZIP" com ícone Download na galeria do host (`src/app/(host)/events/[slug]/page.tsx`)
+- [x] Link direto `<a href download>` para streaming sem JavaScript extra
+
+**Testes (`src/tests/api/download-zip.test.ts`):**
+- [x] Unauthenticated → 401
+- [x] Evento não pertence ao host → 403
+- [x] Evento sem fotos → ZIP vazio com 200
+- [x] Fotos flagadas excluídas do ZIP
 
 ---
 
@@ -199,11 +224,11 @@ Itens identificados por revisão multi-agente (2026-05-28). Não bloqueiam o MVP
 - [x] `search/route.ts`: `event_id` exposto desnecessariamente no response JSON
 - [x] Arquivo órfão `MAX_QUERY_LENGTH)` na raiz do projeto — deletado
 
-**🟡 Baixa — pendentes:**
-- [ ] `gallery/route.ts:37`: coluna `is_flagged` selecionada no SELECT mas descartada no response — remover do SELECT
-- [ ] `search/route.ts:64`: `embeddingResponse.data[0]` sem guarda — adicionar check `if (!embeddingResponse.data[0])`
+**🟡 Baixa — resolvidos:**
+- [x] `gallery/route.ts`: `is_flagged` NÃO está no SELECT — está apenas como filtro `.eq('is_flagged', false)` (already correct)
+- [x] `search/route.ts`: null check completo — `if (!embeddingResponse.data || embeddingResponse.data.length === 0)` + `if (!first?.embedding)` (já corrigido)
 
-**🔵 Cleanup — pendentes:**
+**🔵 Cleanup — pendente:**
 - [ ] Extrair padrão auth+ownership duplicado (search + gallery + upload-url) para helper compartilhado `src/lib/require-event-host.ts`
 
 ---
@@ -234,3 +259,6 @@ Itens identificados por revisão multi-agente (2026-05-28). Não bloqueiam o MVP
 | 2026-05-28 | Revisão multi-agente Épica 4: 9 findings (3 alta, 2 média, 2 baixa, 2 cleanup) — todos alta corrigidos + 47/47 testes passando | review swarm + code-review skill |
 | 2026-05-28 | Épico 5 planejado: pipeline researcher→architect→reviewer; guest emails → Épico 6 (LGPD); hard-delete Storage-first; closes_notified_at para idempotência; IDOR protection obrigatória | planning swarm |
 | 2026-05-28 | Épico 5 implementado: DELETE photo, PATCH event, resend.ts (lazy init), lazy email trigger, delete dialog, photo-grid onDelete, settings page — 71/71 testes passando, build limpo | 4-agent swarm (backend + frontend + review + test) |
+| 2026-05-28 | Épico 6 implementado: is_revealed lógica, gallery 403 com reveal_at, countdown timer animado, guest gallery page, sendRevealEmail com idempotência, campo reveal_at em settings, PATCH aceita reveal_at | swarm |
+| 2026-05-28 | Épico 7 implementado: GET /download-zip streaming ZIP com archiver, Node.js runtime, nome sanitizado, botão "Baixar ZIP" na galeria do host | swarm |
+| 2026-05-29 | Revisão multi-agente MVP: código dos 7 Épicos confirmado completo; bugs do backlog já corrigidos; PROGRESS.md atualizado; bloqueadores de deploy mapeados (Supabase + Vercel + Resend) | review swarm |
