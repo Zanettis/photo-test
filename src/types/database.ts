@@ -39,6 +39,7 @@ export interface Database {
           event_date: string
           settings: Json
           shot_cap: number | null
+          guest_cap: number | null
           reveal_at: string | null
           closes_at: string | null
           reveal_notified_at: string | null
@@ -54,6 +55,7 @@ export interface Database {
           event_date: string
           settings?: Json
           shot_cap?: number | null
+          guest_cap?: number | null
           reveal_at?: string | null
           closes_at?: string | null
           reveal_notified_at?: string | null
@@ -69,6 +71,7 @@ export interface Database {
           event_date?: string
           settings?: Json
           shot_cap?: number | null
+          guest_cap?: number | null
           reveal_at?: string | null
           closes_at?: string | null
           reveal_notified_at?: string | null

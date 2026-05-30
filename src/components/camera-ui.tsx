@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { nanoid } from 'nanoid'
 import type { Database } from '@/types/database'
+import { GuestOnboarding } from './guest-onboarding'
 
 type EventRow = Database['public']['Tables']['events']['Row']
 
@@ -36,6 +37,7 @@ export default function CameraUI({ event, slug }: Props) {
   const [emailSaved, setEmailSaved] = useState(false)
   const [cameraReady, setCameraReady] = useState(false)
   const [cameraError, setCameraError] = useState<string | null>(null)
+  const [showOnboarding, setShowOnboarding] = useState(false)
 
   useEffect(() => {
     const TOKEN_KEY = `uploader_token_${slug}`
@@ -49,6 +51,8 @@ export default function CameraUI({ event, slug }: Props) {
 
     const isOpen = !event.closes_at || new Date(event.closes_at) > new Date()
     if (!isOpen) { setScreen('closed'); return }
+
+    if (!localStorage.getItem(`onboarded_${slug}`)) setShowOnboarding(true)
   }, [slug, event.closes_at])
 
   useEffect(() => {
@@ -251,7 +255,15 @@ export default function CameraUI({ event, slug }: Props) {
   const isFlash = screen === 'flash'
 
   return (
-    <div className="min-h-screen bg-black flex flex-col items-center justify-between p-4">
+    <div className="min-h-screen bg-black flex flex-col items-center justify-between p-4 relative">
+      {showOnboarding && (
+        <GuestOnboarding
+          eventName={event.name}
+          slug={slug}
+          revealAt={event.reveal_at ?? null}
+          onComplete={() => setShowOnboarding(false)}
+        />
+      )}
       {isFlash && (
         <div className="fixed inset-0 bg-white opacity-100 transition-opacity duration-300 pointer-events-none z-50" />
       )}

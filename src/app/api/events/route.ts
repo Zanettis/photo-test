@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await request.json()
-  const { name, event_date, shot_cap, reveal_at } = body
+  const { name, event_date, shot_cap, guest_cap, reveal_at } = body
 
   if (!name || typeof name !== 'string' || name.trim().length === 0) {
     return NextResponse.json({ error: 'name is required' }, { status: 400 })
@@ -29,6 +29,9 @@ export async function POST(request: NextRequest) {
   }
   if (shot_cap !== null && shot_cap !== undefined && ![5, 10, 20].includes(shot_cap)) {
     return NextResponse.json({ error: 'shot_cap must be 5, 10, 20, or null' }, { status: 400 })
+  }
+  if (guest_cap !== null && guest_cap !== undefined && ![5, 10, 25, 50, 100, 150, 200].includes(guest_cap)) {
+    return NextResponse.json({ error: 'guest_cap must be 5, 10, 25, 50, 100, 150, 200, or null' }, { status: 400 })
   }
 
   const { data: hostData } = await supabase.from('hosts').select('*').eq('id', user.id).single()
@@ -57,6 +60,7 @@ export async function POST(request: NextRequest) {
     name: name.trim(),
     event_date,
     shot_cap: shot_cap ?? null,
+    guest_cap: guest_cap ?? null,
     reveal_at: reveal_at ?? null,
     settings: {},
   }
