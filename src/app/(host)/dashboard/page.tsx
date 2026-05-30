@@ -12,6 +12,7 @@ interface EventRow {
   event_date: string
   closes_at: string | null
   reveal_at: string | null
+  cover_image_path: string | null
 }
 
 function getTimeRemaining(closesAt: string | null, eventDate: string): string {
@@ -45,7 +46,7 @@ export default async function DashboardPage() {
 
   const { data, error } = await supabase
     .from('events')
-    .select('id, slug, name, event_date, closes_at, reveal_at')
+    .select('id, slug, name, event_date, closes_at, reveal_at, cover_image_path')
     .eq('host_id', user.id)
     .order('event_date', { ascending: false })
 
@@ -82,7 +83,13 @@ export default async function DashboardPage() {
                 name={event.name}
                 eventDate={event.event_date}
                 closesAt={event.closes_at}
-                coverImageUrl={null}
+                coverImageUrl={
+                  event.cover_image_path
+                    ? (event.cover_image_path.startsWith('/')
+                        ? event.cover_image_path
+                        : supabase.storage.from('photos').getPublicUrl(event.cover_image_path).data.publicUrl)
+                    : null
+                }
                 timeRemaining={getTimeRemaining(event.closes_at, event.event_date)}
               />
             ))}
@@ -102,7 +109,13 @@ export default async function DashboardPage() {
                 name={event.name}
                 eventDate={event.event_date}
                 photoCount={0}
-                coverImageUrl={null}
+                coverImageUrl={
+                  event.cover_image_path
+                    ? (event.cover_image_path.startsWith('/')
+                        ? event.cover_image_path
+                        : supabase.storage.from('photos').getPublicUrl(event.cover_image_path).data.publicUrl)
+                    : null
+                }
               />
             ))}
           </div>
