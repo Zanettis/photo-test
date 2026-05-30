@@ -3,15 +3,12 @@ import { createServerSupabaseClient, createServiceClient } from '@/lib/supabase'
 import type { Database } from '@/types/database'
 import { nanoid } from 'nanoid'
 import { sendHostClosureEmail, sendHostNpsEmail, sendRevealEmail } from '@/lib/resend'
+import { calcEventPrice } from '@/lib/pricing'
 
 type EventRow = Database['public']['Tables']['events']['Row']
 type EventInsert = Database['public']['Tables']['events']['Insert']
 
-const PLAN_LIMITS: Record<string, number> = {
-  free: 1,
-  basic: 5,
-  complete: Infinity,
-}
+const FREE_EVENT_LIMIT = 5
 
 export async function POST(request: NextRequest) {
   const supabase = await createServerSupabaseClient()
@@ -34,23 +31,27 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'guest_cap must be 5, 10, 25, 50, 100, 150, 200, or null' }, { status: 400 })
   }
 
-  const { data: hostData } = await supabase.from('hosts').select('*').eq('id', user.id).single()
-  const host = hostData as Database['public']['Tables']['hosts']['Row'] | null
-  if (!host) return NextResponse.json({ error: 'Host not found' }, { status: 404 })
+  const { data: hostData } = await supabase.from('hosts').select('id').eq('id', user.id).single()
+  if (!hostData) return NextResponse.json({ error: 'Host not found' }, { status: 404 })
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL
   if (!appUrl) {
     return NextResponse.json({ error: 'NEXT_PUBLIC_APP_URL is not configured' }, { status: 500 })
   }
 
-  const { count } = await supabase
-    .from('events')
-    .select('id', { count: 'exact', head: true })
-    .eq('host_id', user.id)
+  const isNewEventFree = calcEventPrice(guest_cap ?? null, shot_cap ?? null) === 0
 
-  const limit = PLAN_LIMITS[host.plan] ?? 1
-  if ((count ?? 0) >= limit) {
-    return NextResponse.json({ error: 'Plan limit reached' }, { status: 402 })
+  if (isNewEventFree) {
+    const { count: freeCount } = await supabase
+      .from('events')
+      .select('id', { count: 'exact', head: true })
+      .eq('host_id', user.id)
+      .eq('guest_cap', 5)
+      .not('shot_cap', 'is', null)
+
+    if ((freeCount ?? 0) >= FREE_EVENT_LIMIT) {
+      return NextResponse.json({ error: 'Free event limit reached' }, { status: 402 })
+    }
   }
 
   const slug = nanoid(8)

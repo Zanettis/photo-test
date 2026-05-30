@@ -89,54 +89,87 @@ describe('POST /api/events', () => {
     expect(body.error).toMatch(/shot_cap/i)
   })
 
-  it('returns 402 when free plan limit of 1 event is reached', async () => {
-    // hosts query returns free plan host
-    const hostChain = { data: { id: 'user-1', plan: 'free', email: 'a@b.com', created_at: '' }, error: null }
-    // events count query returns count = 1 (at limit)
-    const countChain = { count: 1, error: null }
+  it('returns 402 when free event limit of 5 is reached', async () => {
+    const hostChain = { data: { id: 'user-1' }, error: null }
 
     mockFrom.mockImplementation((table: string) => {
       if (table === 'hosts') {
         return { select: () => ({ eq: () => ({ single: () => Promise.resolve(hostChain) }) }) }
       }
       if (table === 'events') {
-        return { select: () => ({ eq: () => Promise.resolve(countChain) }) }
+        // count of free events = 5 (at limit)
+        return { select: () => ({ eq: () => ({ eq: () => ({ not: () => Promise.resolve({ count: 5, error: null }) }) }) }) }
       }
     })
 
-    const req = jsonRequest('http://localhost/api/events', { name: 'Test', event_date: '2026-06-01', shot_cap: null })
+    // Free event: guest_cap=5, shot_cap=10
+    const req = jsonRequest('http://localhost/api/events', { name: 'Test', event_date: '2026-06-01', guest_cap: 5, shot_cap: 10 })
     const res = await postEvents(req)
     expect(res.status).toBe(402)
+    const body = await res.json()
+    expect(body.error).toBe('Free event limit reached')
   })
 
-  it('returns 500 when NEXT_PUBLIC_APP_URL is not set', async () => {
-    delete process.env.NEXT_PUBLIC_APP_URL
-
-    const insertedEvent = { id: 'ev-1', slug: 'abc12345', name: 'Test', event_date: '2026-06-01', shot_cap: null, reveal_at: null }
+  it('allows paid event even when free event limit is reached', async () => {
+    process.env.NEXT_PUBLIC_APP_URL = 'http://localhost:3000'
+    const hostChain = { data: { id: 'user-1' }, error: null }
+    const insertedEvent = { id: 'ev-2', slug: 'paid1234', name: 'Paid Event', event_date: '2026-06-01', shot_cap: 10, reveal_at: null }
 
     mockFrom.mockImplementation((table: string) => {
       if (table === 'hosts') {
-        return { select: () => ({ eq: () => ({ single: () => Promise.resolve({ data: { id: 'user-1', plan: 'basic', email: 'a@b.com', created_at: '' } }) }) }) }
+        return { select: () => ({ eq: () => ({ single: () => Promise.resolve(hostChain) }) }) }
       }
       if (table === 'events') {
-        // First call: count check (select with head). Second call: insert.
-        let callCount = 0
         return {
-          select: () => {
-            callCount++
-            if (callCount === 1) {
-              // count query
-              return { eq: () => Promise.resolve({ count: 0, error: null }) }
-            }
-            // should not reach here for this scenario
-            return { eq: () => Promise.resolve({ count: 0 }) }
-          },
+          // no count check called for paid events
           insert: () => ({ select: () => ({ single: () => Promise.resolve({ data: insertedEvent, error: null }) }) }),
         }
       }
     })
 
-    const req = jsonRequest('http://localhost/api/events', { name: 'Test', event_date: '2026-06-01', shot_cap: null })
+    // Paid event: guest_cap=10 → R$9,99
+    const req = jsonRequest('http://localhost/api/events', { name: 'Paid Event', event_date: '2026-06-01', guest_cap: 10, shot_cap: 10 })
+    const res = await postEvents(req)
+    expect(res.status).toBe(201)
+  })
+
+  it('allows first free event when no free events exist', async () => {
+    process.env.NEXT_PUBLIC_APP_URL = 'http://localhost:3000'
+    const hostChain = { data: { id: 'user-1' }, error: null }
+    const insertedEvent = { id: 'ev-3', slug: 'free1234', name: 'Free Event', event_date: '2026-06-01', shot_cap: 10, reveal_at: null }
+
+    mockFrom.mockImplementation((table: string) => {
+      if (table === 'hosts') {
+        return { select: () => ({ eq: () => ({ single: () => Promise.resolve(hostChain) }) }) }
+      }
+      if (table === 'events') {
+        return {
+          select: () => ({ eq: () => ({ eq: () => ({ not: () => Promise.resolve({ count: 0, error: null }) }) }) }),
+          insert: () => ({ select: () => ({ single: () => Promise.resolve({ data: insertedEvent, error: null }) }) }),
+        }
+      }
+    })
+
+    const req = jsonRequest('http://localhost/api/events', { name: 'Free Event', event_date: '2026-06-01', guest_cap: 5, shot_cap: 10 })
+    const res = await postEvents(req)
+    expect(res.status).toBe(201)
+  })
+
+  it('returns 500 when NEXT_PUBLIC_APP_URL is not set', async () => {
+    delete process.env.NEXT_PUBLIC_APP_URL
+
+    mockFrom.mockImplementation((table: string) => {
+      if (table === 'hosts') {
+        return { select: () => ({ eq: () => ({ single: () => Promise.resolve({ data: { id: 'user-1' } }) }) }) }
+      }
+      if (table === 'events') {
+        // Paid event → no count query, hits APP_URL check directly
+        return {}
+      }
+    })
+
+    // Paid event (guest_cap=10) so no free-event count query runs before APP_URL check
+    const req = jsonRequest('http://localhost/api/events', { name: 'Test', event_date: '2026-06-01', guest_cap: 10, shot_cap: 10 })
     const res = await postEvents(req)
     expect(res.status).toBe(500)
     const body = await res.json()
@@ -150,17 +183,17 @@ describe('POST /api/events', () => {
 
     mockFrom.mockImplementation((table: string) => {
       if (table === 'hosts') {
-        return { select: () => ({ eq: () => ({ single: () => Promise.resolve({ data: { id: 'user-1', plan: 'basic', email: 'a@b.com', created_at: '' } }) }) }) }
+        return { select: () => ({ eq: () => ({ single: () => Promise.resolve({ data: { id: 'user-1' } }) }) }) }
       }
       if (table === 'events') {
         return {
-          select: () => ({ eq: () => Promise.resolve({ count: 0, error: null }) }),
+          // Paid event (guest_cap=10) → no count query, goes straight to insert
           insert: () => ({ select: () => ({ single: () => Promise.resolve({ data: insertedEvent, error: null }) }) }),
         }
       }
     })
 
-    const req = jsonRequest('http://localhost/api/events', { name: 'Wedding', event_date: '2026-06-01', shot_cap: 10 })
+    const req = jsonRequest('http://localhost/api/events', { name: 'Wedding', event_date: '2026-06-01', guest_cap: 10, shot_cap: 10 })
     const res = await postEvents(req)
     expect(res.status).toBe(201)
     const body = await res.json()
