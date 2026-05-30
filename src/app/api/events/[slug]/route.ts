@@ -77,13 +77,15 @@ export async function PATCH(
     return NextResponse.json({ error: 'invalid_json' }, { status: 400 })
   }
 
-  const { name, closes_at, reveal_at } = body as { name?: unknown; closes_at?: unknown; reveal_at?: unknown }
+  const { name, closes_at, reveal_at, cover_image_path } = body as {
+    name?: unknown; closes_at?: unknown; reveal_at?: unknown; cover_image_path?: unknown
+  }
 
-  if (name === undefined && closes_at === undefined && reveal_at === undefined) {
+  if (name === undefined && closes_at === undefined && reveal_at === undefined && cover_image_path === undefined) {
     return NextResponse.json({ error: 'nothing_to_update' }, { status: 400 })
   }
 
-  const patch: { name?: string; closes_at?: string | null; reveal_at?: string | null } = {}
+  const patch: { name?: string; closes_at?: string | null; reveal_at?: string | null; cover_image_path?: string | null } = {}
 
   if (name !== undefined) {
     if (typeof name !== 'string' || name.trim().length === 0 || name.trim().length > 100) {
@@ -120,6 +122,14 @@ export async function PATCH(
       patch.reveal_at = reveal_at
     } else {
       return NextResponse.json({ error: 'invalid_reveal_at' }, { status: 400 })
+    }
+  }
+
+  if (cover_image_path !== undefined) {
+    if (cover_image_path === null || typeof cover_image_path === 'string') {
+      patch.cover_image_path = cover_image_path as string | null
+    } else {
+      return NextResponse.json({ error: 'invalid_cover_image_path' }, { status: 400 })
     }
   }
 

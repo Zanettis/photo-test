@@ -9,6 +9,7 @@ type EventRow = Database['public']['Tables']['events']['Row']
 interface Props {
   event: EventRow
   slug: string
+  coverImageUrl?: string | null
 }
 
 type Screen = 'camera' | 'uploading' | 'flash' | 'shot_cap' | 'closed' | 'countdown'
@@ -23,7 +24,7 @@ function formatCountdown(target: Date): string {
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
 }
 
-export default function CameraUI({ event, slug }: Props) {
+export default function CameraUI({ event, slug, coverImageUrl }: Props) {
   const inputRef = useRef<HTMLInputElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
@@ -261,6 +262,7 @@ export default function CameraUI({ event, slug }: Props) {
           eventName={event.name}
           slug={slug}
           revealAt={event.reveal_at ?? null}
+          coverImageUrl={coverImageUrl ?? null}
           onComplete={() => setShowOnboarding(false)}
         />
       )}

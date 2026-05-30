@@ -23,5 +23,17 @@ export default async function GuestPage({ params }: { params: Promise<{ slug: st
 
   if (!event) notFound()
 
-  return <CameraUI event={event} slug={slug} />
+  const supabase = createServiceClient()
+  let coverImageUrl: string | null = null
+  if (event.cover_image_path) {
+    if (event.cover_image_path.startsWith('/')) {
+      coverImageUrl = event.cover_image_path
+    } else {
+      coverImageUrl = supabase.storage
+        .from('photos')
+        .getPublicUrl(event.cover_image_path).data.publicUrl
+    }
+  }
+
+  return <CameraUI event={event} slug={slug} coverImageUrl={coverImageUrl} />
 }

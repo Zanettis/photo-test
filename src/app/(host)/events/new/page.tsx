@@ -3,8 +3,11 @@ import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { WizardShell } from '@/components/wizard/wizard-shell'
 import { SuggestionChips } from '@/components/wizard/suggestion-chips'
+import { PhoneMockup } from '@/components/wizard/phone-mockup'
+import { CoverPicker } from '@/components/wizard/cover-picker'
 import { useWizardState } from '@/hooks/use-wizard-state'
 import { GUEST_TIERS, calcEventPrice, unlimitedPhotosAddon, formatPrice } from '@/lib/pricing'
+import { COVER_PRESETS } from '@/lib/cover-presets'
 import { cn } from '@/lib/utils'
 
 const NAME_SUGGESTIONS = ['Casamento', 'Aniversário', 'Formatura', 'Churrasco', 'Confraternização']
@@ -65,6 +68,12 @@ export default function NewEventPage() {
   const [revealDateInput, setRevealDateInput] = useState('')
   const [revealTimeInput, setRevealTimeInput] = useState('')
 
+  // W5
+  const [selectedCover, setSelectedCover] = useState<string | null>(null)
+  const [coverImageFile, setCoverImageFile] = useState<File | null>(null)
+  const [step5Loading, setStep5Loading] = useState(false)
+  const [step5Error, setStep5Error] = useState<string | null>(null)
+
   function handleNameNext() {
     if (!data.name?.trim()) { setNameError('Dá um nome pra festa primeiro'); return }
     setNameError('')
@@ -93,18 +102,61 @@ export default function NewEventPage() {
     return new Date(`${iso}T${time}:00`).toISOString()
   }
 
-  async function handleSubmit() {
+  function handleRevealNext() {
     const revealAt = buildRevealAt()
     updateField('reveal_at', revealAt)
+    nextStep()
+  }
+
+  async function handleDesignSubmit() {
+    if (!selectedCover || step5Loading) return
+    setStep5Loading(true)
+    setStep5Error(null)
+
     const slug = await submit()
-    if (slug) router.push(`/events/${slug}/share`)
+    if (!slug) { setStep5Loading(false); return }
+
+    try {
+      let coverPath = selectedCover
+
+      if (coverImageFile) {
+        const ext = coverImageFile.type === 'image/png' ? 'png' : 'jpg'
+        const coverUrlRes = await fetch(`/api/events/${slug}/cover-url`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ file_ext: ext }),
+        })
+        if (!coverUrlRes.ok) throw new Error('cover_url_failed')
+        const { upload_url, storage_path } = await coverUrlRes.json()
+
+        const uploadRes = await fetch(upload_url, {
+          method: 'PUT',
+          headers: { 'Content-Type': coverImageFile.type },
+          body: coverImageFile,
+        })
+        if (!uploadRes.ok) throw new Error('upload_failed')
+
+        coverPath = storage_path
+      }
+
+      await fetch(`/api/events/${slug}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cover_image_path: coverPath }),
+      })
+
+      router.push(`/events/${slug}/share`)
+    } catch {
+      setStep5Error('Falha ao salvar a capa. Tente novamente.')
+      setStep5Loading(false)
+    }
   }
 
   // W1 — Nome
   if (step === 1) {
     return (
       <WizardShell
-        currentStep={1} totalSteps={4}
+        currentStep={1} totalSteps={5}
         onExit={() => router.push('/dashboard')}
         cta={
           <button
@@ -154,7 +206,7 @@ export default function NewEventPage() {
     const previewIso = parseDateInput(dateInput)
     return (
       <WizardShell
-        currentStep={2} totalSteps={4}
+        currentStep={2} totalSteps={5}
         onBack={prevStep}
         onExit={() => router.push('/dashboard')}
         cta={
@@ -218,7 +270,7 @@ export default function NewEventPage() {
 
     return (
       <WizardShell
-        currentStep={3} totalSteps={4}
+        currentStep={3} totalSteps={5}
         onBack={prevStep}
         onExit={() => router.push('/dashboard')}
         cta={
@@ -323,18 +375,17 @@ export default function NewEventPage() {
   }
 
   // W4 — Revelação
-  return (
+  if (step === 4) return (
     <WizardShell
-      currentStep={4} totalSteps={4}
+      currentStep={4} totalSteps={5}
       onBack={prevStep}
       onExit={() => router.push('/dashboard')}
       cta={
         <button
-          onClick={handleSubmit}
-          disabled={isSubmitting}
-          className="px-6 py-3 bg-white text-black font-semibold rounded-2xl disabled:opacity-50 transition-opacity flex items-center gap-2"
+          onClick={handleRevealNext}
+          className="px-6 py-3 bg-white text-black font-semibold rounded-2xl flex items-center gap-2"
         >
-          {isSubmitting ? 'Criando...' : 'Criar evento'}
+          Próximo →
         </button>
       }
     >
@@ -400,15 +451,62 @@ export default function NewEventPage() {
           </div>
         )}
 
-        {error && <p className="text-red-400 text-sm">{error}</p>}
-
         <button
           type="button"
-          onClick={() => { updateField('reveal_at', null); setRevealMode('immediate'); handleSubmit() }}
+          onClick={() => { updateField('reveal_at', null); setRevealMode('immediate'); nextStep() }}
           className="text-zinc-500 text-sm hover:text-zinc-300 transition-colors"
         >
           Pular → revelar imediatamente
         </button>
+      </div>
+    </WizardShell>
+  )
+
+  // W5 — Design da capa
+  return (
+    <WizardShell
+      currentStep={5} totalSteps={5}
+      onBack={prevStep}
+      onExit={() => router.push('/dashboard')}
+      cta={
+        <button
+          onClick={handleDesignSubmit}
+          disabled={!selectedCover || step5Loading}
+          className="px-6 py-3 bg-white text-black font-semibold rounded-2xl disabled:opacity-30 disabled:cursor-not-allowed transition-opacity flex items-center gap-2"
+        >
+          {step5Loading ? 'Criando...' : 'Criar evento'}
+        </button>
+      }
+    >
+      <div className="flex flex-col gap-5 pt-6 pb-4 overflow-y-auto">
+        <div>
+          <h1 className="text-3xl font-bold text-white leading-tight">Design do seu evento.</h1>
+          <p className="text-zinc-500 mt-2 text-sm">Escolha a foto de capa que seus convidados vão ver.</p>
+        </div>
+
+        <CoverPicker
+          presetPaths={COVER_PRESETS}
+          selected={selectedCover}
+          onSelectPreset={path => {
+            setSelectedCover(path)
+            setCoverImageFile(null)
+          }}
+          onSelectFile={(file, blobUrl) => {
+            setCoverImageFile(file)
+            setSelectedCover(blobUrl)
+          }}
+        />
+
+        <PhoneMockup
+          eventName={data.name ?? ''}
+          eventDate={data.event_date ?? ''}
+          shotCap={data.shot_cap ?? null}
+          coverPreview={selectedCover}
+        />
+
+        {(error || step5Error) && (
+          <p className="text-red-400 text-sm">{step5Error ?? error}</p>
+        )}
       </div>
     </WizardShell>
   )

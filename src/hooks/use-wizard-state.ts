@@ -25,7 +25,7 @@ export function useWizardState() {
     setData(prev => ({ ...prev, [key]: value }))
   }
 
-  function nextStep() { setStep(s => Math.min(s + 1, 4)) }
+  function nextStep() { setStep(s => Math.min(s + 1, 5)) }
   function prevStep() { setStep(s => Math.max(s - 1, 1)) }
 
   async function submit(): Promise<string | null> {
@@ -45,7 +45,7 @@ export function useWizardState() {
         }),
       })
       if (res.status === 402) {
-        setError('Você atingiu o limite do seu plano.')
+        setError('Você atingiu o limite de eventos gratuitos.')
         return null
       }
       if (!res.ok) {
