@@ -5,7 +5,6 @@ import { QrCode } from 'lucide-react'
 import { EventHeroCard } from '@/components/event-hero-card'
 import { EventAlbumRow } from '@/components/event-album-row'
 
-interface PhotoRow { id: string; storage_path: string }
 interface EventRow {
   id: string
   slug: string
@@ -14,7 +13,7 @@ interface EventRow {
   closes_at: string | null
   reveal_at: string | null
   cover_image_path: string | null
-  photos: PhotoRow[]
+  photos: { count: number }[]
 }
 
 function getTimeRemaining(closesAt: string | null, eventDate: string): string {
@@ -53,7 +52,7 @@ export default async function DashboardPage() {
 
   const { data, error } = await supabase
     .from('events')
-    .select('id, slug, name, event_date, closes_at, reveal_at, cover_image_path, photos(id, storage_path)')
+    .select('id, slug, name, event_date, closes_at, reveal_at, cover_image_path, photos(count)')
     .eq('host_id', user.id)
     .order('event_date', { ascending: false })
 
@@ -103,21 +102,16 @@ export default async function DashboardPage() {
         <section>
           <p className="text-zinc-500 text-xs font-semibold uppercase tracking-widest mb-4">Albums</p>
           <div className="flex flex-col gap-8">
-            {albums.map(event => {
-              const thumbUrls = event.photos.slice(0, 3).map(p =>
-                supabase.storage.from('photos').getPublicUrl(p.storage_path).data.publicUrl
-              )
-              return (
-                <EventAlbumRow
-                  key={event.id}
-                  slug={event.slug}
-                  name={event.name}
-                  eventDate={event.event_date}
-                  thumbnailUrls={thumbUrls}
-                  coverImageUrl={getCoverUrl(supabase, event.cover_image_path)}
-                />
-              )
-            })}
+            {albums.map(event => (
+              <EventAlbumRow
+                key={event.id}
+                slug={event.slug}
+                name={event.name}
+                eventDate={event.event_date}
+                photoCount={event.photos?.[0]?.count ?? 0}
+                coverImageUrl={getCoverUrl(supabase, event.cover_image_path)}
+              />
+            ))}
           </div>
         </section>
       )}
