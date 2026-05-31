@@ -14,7 +14,7 @@ interface Props {
 
 export function EventHeroCard({ slug, name, coverImageUrl, timeRemaining }: Props) {
   return (
-    <div className="relative w-full aspect-[4/5] rounded-3xl overflow-hidden bg-zinc-900">
+    <div className="relative w-[72vw] max-w-[280px] flex-shrink-0 snap-start aspect-[4/5] rounded-3xl overflow-hidden bg-zinc-900">
       {coverImageUrl ? (
         <img
           src={coverImageUrl}

@@ -75,7 +75,7 @@ export default async function DashboardPage() {
       {active.length > 0 && (
         <section className="mb-8">
           <p className="text-zinc-500 text-xs font-semibold uppercase tracking-widest mb-4">Active</p>
-          <div className="flex flex-col gap-4">
+          <div className="-mx-5 flex flex-row gap-3 overflow-x-auto snap-x snap-mandatory px-5 pr-5 pb-3 [&::-webkit-scrollbar]:hidden">
             {active.map(event => (
               <EventHeroCard
                 key={event.id}
