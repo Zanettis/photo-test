@@ -353,14 +353,22 @@ export default function CameraUI({ event, slug, coverImageUrl }: Props) {
 
       {/* Bottom controls */}
       <div className="h-28 flex items-center justify-around px-8 shrink-0">
-        {/* Shot counter — rolo de filme */}
-        <div className="bg-zinc-900/80 backdrop-blur-sm rounded-full px-4 py-2 flex items-center gap-2 min-w-[80px] justify-center">
-          {shotsTotal > 0 && (
-            <span className="text-zinc-600 text-lg font-bold">{shotsTotal - 1}</span>
-          )}
-          <span className="text-white text-2xl font-bold">{shotsTotal}</span>
-          <span className="text-zinc-600 text-lg font-bold">{shotsTotal + 1}</span>
-        </div>
+        {/* Shot counter — fotos restantes, estilo rolo de filme */}
+        {(() => {
+          const displayRemaining = shotsRemaining ?? event.shot_cap
+          if (displayRemaining === null) return <div className="w-[80px]" />
+          return (
+            <div className="bg-zinc-900/80 backdrop-blur-sm rounded-full px-4 py-2 flex items-center gap-2 min-w-[80px] justify-center">
+              {displayRemaining < (event.shot_cap ?? displayRemaining + 1) && (
+                <span className="text-zinc-600 text-lg font-bold">{displayRemaining + 1}</span>
+              )}
+              <span className="text-white text-2xl font-bold">{displayRemaining}</span>
+              {displayRemaining > 0 && (
+                <span className="text-zinc-600 text-lg font-bold">{displayRemaining - 1}</span>
+              )}
+            </div>
+          )
+        })()}
 
         {/* Shutter button */}
         <button
@@ -376,12 +384,20 @@ export default function CameraUI({ event, slug, coverImageUrl }: Props) {
           ].join(' ')}
         />
 
-        {/* Last photo thumbnail */}
-        <div className="w-16 h-16 rounded-2xl overflow-hidden bg-zinc-800/80 border border-zinc-700/50">
-          {lastPhotoUrl && (
-            <img src={lastPhotoUrl} alt="Última foto" className="w-full h-full object-cover" />
+        {/* Thumbnail — última foto ou capa, link para galeria */}
+        <Link
+          href={`/e/${slug}/gallery`}
+          className="w-16 h-16 rounded-2xl overflow-hidden bg-zinc-800/80 border border-zinc-700/50 shrink-0"
+          aria-label="Ver galeria do evento"
+        >
+          {(lastPhotoUrl ?? coverImageUrl) && (
+            <img
+              src={lastPhotoUrl ?? coverImageUrl ?? ''}
+              alt="Galeria"
+              className="w-full h-full object-cover"
+            />
           )}
-        </div>
+        </Link>
       </div>
     </div>
   )
