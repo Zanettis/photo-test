@@ -8,6 +8,7 @@ export interface WizardData {
   shot_cap: number | null
   guest_cap: number | null
   reveal_at: string | null  // ISO timestamp or null
+  closes_at: string | null  // ISO timestamp or null
 }
 
 export function useWizardState() {
@@ -17,6 +18,7 @@ export function useWizardState() {
     shot_cap: 10,
     guest_cap: 5,
     reveal_at: null,
+    closes_at: null,
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -25,7 +27,7 @@ export function useWizardState() {
     setData(prev => ({ ...prev, [key]: value }))
   }
 
-  function nextStep() { setStep(s => Math.min(s + 1, 5)) }
+  function nextStep() { setStep(s => Math.min(s + 1, 6)) }
   function prevStep() { setStep(s => Math.max(s - 1, 1)) }
 
   async function submit(): Promise<string | null> {
@@ -42,6 +44,7 @@ export function useWizardState() {
           shot_cap: data.shot_cap ?? null,
           guest_cap: data.guest_cap ?? null,
           reveal_at: data.reveal_at ?? null,
+          closes_at: data.closes_at ?? null,
         }),
       })
       if (res.status === 402) {

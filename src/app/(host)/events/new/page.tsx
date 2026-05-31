@@ -64,6 +64,10 @@ export default function NewEventPage() {
   const [dateInput, setDateInput] = useState('')
   const [dateError, setDateError] = useState('')
 
+  // W3 — Duração
+  const [durationMode, setDurationMode] = useState<'horas' | 'dias'>('horas')
+  const [durationValue, setDurationValue] = useState<number>(8)
+
   // W4
   const [revealMode, setRevealMode] = useState<'immediate' | 'scheduled'>('immediate')
   const [revealDateInput, setRevealDateInput] = useState('')
@@ -82,6 +86,12 @@ export default function NewEventPage() {
     }
   }, [])
 
+  function inferDurationDefault(name: string): { mode: 'horas' | 'dias'; value: number } {
+    const n = name.toLowerCase()
+    if (/casamento|viagem/.test(n)) return { mode: 'dias', value: 1 }
+    return { mode: 'horas', value: 8 }
+  }
+
   function handleNameNext() {
     if (!data.name?.trim()) { setNameError('Dá um nome pra festa primeiro'); return }
     setNameError('')
@@ -93,7 +103,31 @@ export default function NewEventPage() {
     if (!iso) { setDateError('Data inválida. Use DD/MM/AAAA'); return }
     setDateError('')
     updateField('event_date', iso)
+    const def = inferDurationDefault(data.name ?? '')
+    setDurationMode(def.mode)
+    setDurationValue(def.value)
     nextStep()
+  }
+
+  function handleDurationNext() {
+    const ms = durationMode === 'horas'
+      ? durationValue * 3600 * 1000
+      : durationValue * 86400 * 1000
+    const start = new Date((data.event_date ?? '') + 'T12:00:00')
+    const closesAt = new Date(start.getTime() + ms).toISOString()
+    updateField('closes_at', closesAt)
+    nextStep()
+  }
+
+  function closesAtPreview(eventDate: string, mode: 'horas' | 'dias', value: number): string {
+    try {
+      const ms = mode === 'horas' ? value * 3600 * 1000 : value * 86400 * 1000
+      const closes = new Date(new Date(eventDate + 'T12:00:00').getTime() + ms)
+      return closes.toLocaleDateString('pt-BR', {
+        weekday: 'short', day: 'numeric', month: 'short',
+        hour: '2-digit', minute: '2-digit',
+      })
+    } catch { return '' }
   }
 
   function setQuickDate(iso: string) {
@@ -165,7 +199,7 @@ export default function NewEventPage() {
   if (step === 1) {
     return (
       <WizardShell
-        currentStep={1} totalSteps={5}
+        currentStep={1} totalSteps={6}
         onExit={() => router.push('/dashboard')}
         cta={
           <button
@@ -215,7 +249,7 @@ export default function NewEventPage() {
     const previewIso = parseDateInput(dateInput)
     return (
       <WizardShell
-        currentStep={2} totalSteps={5}
+        currentStep={2} totalSteps={6}
         onBack={prevStep}
         onExit={() => router.push('/dashboard')}
         cta={
@@ -270,8 +304,91 @@ export default function NewEventPage() {
     )
   }
 
-  // W3 — Convidados + Fotos
+  // W3 — Duração
   if (step === 3) {
+    const horasOpts = [2, 4, 6, 8, 12, 24]
+    const diasOpts = [1, 2, 3, 5, 7, 14]
+    const preview = data.event_date
+      ? closesAtPreview(data.event_date, durationMode, durationValue)
+      : ''
+
+    return (
+      <WizardShell
+        currentStep={3} totalSteps={6}
+        onBack={prevStep}
+        onExit={() => router.push('/dashboard')}
+        cta={
+          <button
+            onClick={handleDurationNext}
+            className="px-6 py-3 bg-white text-black font-semibold rounded-2xl flex items-center gap-2"
+          >
+            Continuar →
+          </button>
+        }
+      >
+        <div className="flex flex-col gap-6 pt-6">
+          <div>
+            <h1 className="text-4xl font-bold text-white leading-tight">Por quanto tempo?</h1>
+            <p className="text-zinc-500 mt-3 text-sm">O evento fica aberto para envio de fotos</p>
+          </div>
+
+          {/* Mode toggle */}
+          <div className="flex gap-2">
+            {(['horas', 'dias'] as const).map(mode => (
+              <button
+                key={mode}
+                type="button"
+                onClick={() => {
+                  setDurationMode(mode)
+                  setDurationValue(mode === 'horas' ? 8 : 1)
+                }}
+                className={cn(
+                  'rounded-full px-5 py-2 text-sm font-medium transition-all capitalize',
+                  durationMode === mode
+                    ? 'bg-white text-black font-semibold'
+                    : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
+                )}
+              >
+                {mode}
+              </button>
+            ))}
+          </div>
+
+          {/* Value chips */}
+          <div className="-mx-6 px-6 overflow-x-auto">
+            <div className="flex gap-2 pb-1" style={{ width: 'max-content' }}>
+              {(durationMode === 'horas' ? horasOpts : diasOpts).map(val => (
+                <button
+                  key={val}
+                  type="button"
+                  onClick={() => setDurationValue(val)}
+                  className={cn(
+                    'rounded-full px-4 py-2 text-sm whitespace-nowrap transition-all',
+                    durationValue === val
+                      ? 'bg-white text-black font-semibold'
+                      : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
+                  )}
+                >
+                  {durationMode === 'horas'
+                    ? `${val}h`
+                    : val === 1 ? '1 dia' : `${val} dias`}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {preview && (
+            <p className="text-zinc-400 text-sm">
+              Encerra em: <span className="text-zinc-200 capitalize">{preview}</span>
+            </p>
+          )}
+        </div>
+      </WizardShell>
+    )
+  }
+
+  // W4 — Convidados + Fotos
+  if (step === 4) {
     const selectedTier = GUEST_TIERS.find(t => t.guest_cap === (data.guest_cap ?? 5)) ?? GUEST_TIERS[0]
     const isUnlimited = data.shot_cap === null
     const totalPrice = calcEventPrice(data.guest_cap ?? 5, data.shot_cap ?? 10)
@@ -279,7 +396,7 @@ export default function NewEventPage() {
 
     return (
       <WizardShell
-        currentStep={3} totalSteps={5}
+        currentStep={4} totalSteps={6}
         onBack={prevStep}
         onExit={() => router.push('/dashboard')}
         cta={
@@ -383,10 +500,10 @@ export default function NewEventPage() {
     )
   }
 
-  // W4 — Revelação
-  if (step === 4) return (
+  // W5 — Revelação
+  if (step === 5) return (
     <WizardShell
-      currentStep={4} totalSteps={5}
+      currentStep={5} totalSteps={6}
       onBack={prevStep}
       onExit={() => router.push('/dashboard')}
       cta={
@@ -471,11 +588,11 @@ export default function NewEventPage() {
     </WizardShell>
   )
 
-  // W5 — Design da capa
+  // W6 — Design da capa
   return (
     <>
       <WizardShell
-        currentStep={5} totalSteps={5}
+        currentStep={6} totalSteps={6}
         onBack={prevStep}
         onExit={() => router.push('/dashboard')}
         cta={
