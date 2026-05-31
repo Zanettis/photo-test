@@ -37,6 +37,7 @@ interface SearchResponse {
 }
 
 const DEBOUNCE_MS = 300
+const POLL_INTERVAL_MS = 5_000
 
 export default function EventDetailPage() {
   const params = useParams()
@@ -57,9 +58,10 @@ export default function EventDetailPage() {
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const abortRef = useRef<AbortController | null>(null)
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  const fetchGallery = useCallback(async () => {
-    setIsLoading(true)
+  const fetchGalleryData = useCallback(async (showLoading: boolean) => {
+    if (showLoading) setIsLoading(true)
     setError(null)
     try {
       const res = await fetch(`/api/events/${slug}/gallery`)
@@ -73,9 +75,12 @@ export default function EventDetailPage() {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro desconhecido')
     } finally {
-      setIsLoading(false)
+      if (showLoading) setIsLoading(false)
     }
   }, [slug, router])
+
+  const fetchGallery = useCallback(() => fetchGalleryData(true), [fetchGalleryData])
+  const fetchGallerySilent = useCallback(() => fetchGalleryData(false), [fetchGalleryData])
 
   const doSearch = useCallback(async (q: string) => {
     if (!q.trim()) {
@@ -107,6 +112,22 @@ export default function EventDetailPage() {
     fetchGallery()
   }, [fetchGallery])
 
+  const pendingCount = photos.filter(p => p.tagging_status === 'pending').length
+
+  // Poll every 5s while there are pending photos; stops automatically when all done
+  useEffect(() => {
+    if (isLoading || pendingCount === 0) {
+      if (pollingRef.current) { clearInterval(pollingRef.current); pollingRef.current = null }
+      return
+    }
+    if (!pollingRef.current) {
+      pollingRef.current = setInterval(fetchGallerySilent, POLL_INTERVAL_MS)
+    }
+    return () => {
+      if (pollingRef.current) { clearInterval(pollingRef.current); pollingRef.current = null }
+    }
+  }, [isLoading, pendingCount, fetchGallerySilent])
+
   function handleQueryChange(e: React.ChangeEvent<HTMLInputElement>) {
     const val = e.target.value
     setQuery(val)
@@ -137,7 +158,6 @@ export default function EventDetailPage() {
     }
   }
 
-  const pendingCount = photos.filter(p => p.tagging_status === 'pending').length
   const dateFormatted = event
     ? new Date(event.event_date + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
     : ''
