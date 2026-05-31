@@ -1,6 +1,9 @@
 'use client'
 import { useEffect, useRef, useState, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { nanoid } from 'nanoid'
+import { ChevronLeft, QrCode } from 'lucide-react'
 import type { Database } from '@/types/database'
 import { GuestOnboarding } from './guest-onboarding'
 
@@ -24,7 +27,20 @@ function formatCountdown(target: Date): string {
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
 }
 
+function getTimeLeft(closesAt: string | null, eventDate: string): string {
+  const deadline = closesAt ? new Date(closesAt) : new Date(eventDate + 'T23:59:59')
+  const diff = deadline.getTime() - Date.now()
+  if (diff <= 0) return ''
+  const days = Math.floor(diff / 86400000)
+  const hours = Math.floor((diff % 86400000) / 3600000)
+  const mins = Math.floor((diff % 3600000) / 60000)
+  if (days > 0) return `${days}d ${hours}h left`
+  if (hours > 0) return `${hours}h ${mins}m left`
+  return `${mins}m left`
+}
+
 export default function CameraUI({ event, slug, coverImageUrl }: Props) {
+  const router = useRouter()
   const inputRef = useRef<HTMLInputElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
@@ -32,6 +48,7 @@ export default function CameraUI({ event, slug, coverImageUrl }: Props) {
   const [uploaderToken, setUploaderToken] = useState<string | null>(null)
   const [shotsRemaining, setShotsRemaining] = useState<number | null>(null)
   const [shotsTotal, setShotsTotal] = useState(0)
+  const [lastPhotoUrl, setLastPhotoUrl] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [countdown, setCountdown] = useState<string | null>(null)
   const [guestEmail, setGuestEmail] = useState('')
@@ -181,7 +198,6 @@ export default function CameraUI({ event, slug, coverImageUrl }: Props) {
           setShotsRemaining(shots_remaining)
           setShotsTotal(prev => prev + 1)
           setScreen('flash')
-          // After flash animation: go to shot_cap if no shots left, otherwise back to camera
           setTimeout(() => setScreen(shots_remaining === 0 ? 'shot_cap' : 'camera'), 800)
           return
         }
@@ -209,6 +225,8 @@ export default function CameraUI({ event, slug, coverImageUrl }: Props) {
       canvas.getContext('2d')?.drawImage(video, 0, 0)
       canvas.toBlob(blob => {
         if (!blob) return
+        const localUrl = URL.createObjectURL(blob)
+        setLastPhotoUrl(localUrl)
         handleFileSelected(new File([blob], `photo-${Date.now()}.jpg`, { type: 'image/jpeg' }))
       }, 'image/jpeg', 0.9)
     } else {
@@ -254,9 +272,10 @@ export default function CameraUI({ event, slug, coverImageUrl }: Props) {
 
   const isUploading = screen === 'uploading'
   const isFlash = screen === 'flash'
+  const timeLeft = getTimeLeft(event.closes_at ?? null, event.event_date)
 
   return (
-    <div className="min-h-screen bg-black flex flex-col items-center justify-between p-4 relative">
+    <div className="h-dvh bg-black flex flex-col relative">
       {showOnboarding && (
         <GuestOnboarding
           eventName={event.name}
@@ -269,7 +288,6 @@ export default function CameraUI({ event, slug, coverImageUrl }: Props) {
       {isFlash && (
         <div className="fixed inset-0 bg-white opacity-100 transition-opacity duration-300 pointer-events-none z-50" />
       )}
-
       <input
         ref={inputRef}
         type="file"
@@ -279,96 +297,91 @@ export default function CameraUI({ event, slug, coverImageUrl }: Props) {
         onChange={handleInputChange}
       />
 
-      <div className="w-full max-w-sm pt-4">
-        <h1 className="text-white text-lg font-semibold text-center truncate">{event.name}</h1>
-        <div className="mt-1 text-center">
-          {shotsRemaining !== null ? (
-            <span className="font-mono text-zinc-400 text-sm">{shotsRemaining} poses restantes</span>
-          ) : shotsTotal > 0 ? (
-            <span className="font-mono text-zinc-400 text-sm">{shotsTotal} fotos enviadas</span>
-          ) : null}
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 h-16 shrink-0">
+        <button
+          onClick={() => router.back()}
+          className="w-10 h-10 bg-zinc-800/80 backdrop-blur-sm rounded-xl flex items-center justify-center"
+          aria-label="Voltar"
+        >
+          <ChevronLeft size={20} className="text-white" />
+        </button>
+        <div className="flex flex-col items-center">
+          <span className="text-white font-semibold text-sm truncate max-w-[180px]">{event.name}</span>
+          {timeLeft && <span className="text-zinc-400 text-xs mt-0.5">{timeLeft}</span>}
         </div>
-        {countdown && (
-          <p className="font-mono text-zinc-500 text-xs text-center mt-1">Revelação em {countdown}</p>
-        )}
+        <Link
+          href={`/events/${slug}/share`}
+          className="w-10 h-10 bg-zinc-800/80 backdrop-blur-sm rounded-xl flex items-center justify-center"
+          aria-label="QR Code"
+        >
+          <QrCode size={16} className="text-white" />
+        </Link>
       </div>
 
-      <div className="relative w-full max-w-sm aspect-[3/4] my-4">
-        <div className="absolute inset-0 rounded-lg overflow-hidden bg-zinc-950 border border-zinc-800">
-          <video
-            ref={videoRef}
-            autoPlay
-            playsInline
-            muted
-            className="absolute inset-0 w-full h-full object-cover"
-          />
-          {isUploading && (
-            <div className="absolute inset-0 flex items-center justify-center bg-black/50">
-              <div className="w-10 h-10 border-2 border-zinc-600 border-t-white rounded-full animate-spin" />
-            </div>
-          )}
-          {cameraError && (
-            <div className="absolute inset-0 flex items-center justify-center p-4">
-              <p className="text-zinc-400 text-sm text-center">{cameraError}</p>
-            </div>
-          )}
-        </div>
-        <div className="absolute top-2 left-2 w-6 h-6 border-t-2 border-l-2 border-zinc-600 rounded-tl" />
-        <div className="absolute top-2 right-2 w-6 h-6 border-t-2 border-r-2 border-zinc-600 rounded-tr" />
-        <div className="absolute bottom-2 left-2 w-6 h-6 border-b-2 border-l-2 border-zinc-600 rounded-bl" />
-        <div className="absolute bottom-2 right-2 w-6 h-6 border-b-2 border-r-2 border-zinc-600 rounded-br" />
-      </div>
-
-      <div className="w-full max-w-sm flex flex-col items-center gap-3 pb-8">
-        {error && <p className="text-red-400 text-sm text-center">{error}</p>}
+      {/* Viewfinder */}
+      <div className="flex-1 mx-4 my-2 relative rounded-[32px] overflow-hidden bg-zinc-950">
+        <video
+          ref={videoRef}
+          autoPlay
+          playsInline
+          muted
+          className="absolute inset-0 w-full h-full object-cover"
+        />
         {isUploading && (
-          <p className="text-zinc-400 text-sm font-mono">Enviando...</p>
+          <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+            <div className="w-10 h-10 border-2 border-zinc-600 border-t-white rounded-full animate-spin" />
+          </div>
         )}
         {cameraError && (
-          <button
-            onClick={() => inputRef.current?.click()}
-            className="text-zinc-400 text-sm underline"
-          >
-            Selecionar da galeria
-          </button>
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 p-6">
+            <p className="text-zinc-400 text-sm text-center">{cameraError}</p>
+            <button
+              onClick={() => inputRef.current?.click()}
+              className="text-white text-sm underline"
+            >
+              Selecionar da galeria
+            </button>
+          </div>
         )}
+        {error && (
+          <div className="absolute bottom-4 left-4 right-4">
+            <p className="text-red-400 text-xs text-center bg-black/70 rounded-xl px-3 py-2">{error}</p>
+          </div>
+        )}
+      </div>
+
+      {/* Bottom controls */}
+      <div className="h-28 flex items-center justify-around px-8 shrink-0">
+        {/* Shot counter — rolo de filme */}
+        <div className="bg-zinc-900/80 backdrop-blur-sm rounded-full px-4 py-2 flex items-center gap-2 min-w-[80px] justify-center">
+          {shotsTotal > 0 && (
+            <span className="text-zinc-600 text-lg font-bold">{shotsTotal - 1}</span>
+          )}
+          <span className="text-white text-2xl font-bold">{shotsTotal}</span>
+          <span className="text-zinc-600 text-lg font-bold">{shotsTotal + 1}</span>
+        </div>
+
+        {/* Shutter button */}
         <button
           onClick={handleShutterClick}
           disabled={isUploading}
           aria-label="Tirar foto"
           className={[
-            'w-20 h-20 bg-white rounded-full ring-4 ring-zinc-600',
-            'transition-transform active:scale-95',
-            isUploading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-zinc-100',
+            'w-20 h-20 rounded-full',
+            'bg-zinc-700 ring-4 ring-zinc-600',
+            'shadow-[inset_0_2px_4px_rgba(255,255,255,0.12)]',
+            'transition-transform active:scale-90',
+            isUploading ? 'opacity-50 cursor-not-allowed' : '',
           ].join(' ')}
         />
-        {event.reveal_at && !emailSaved && new Date(event.reveal_at) > new Date() && (
-          <form onSubmit={handleEmailSubmit} className="w-full mt-2">
-            <p className="text-zinc-500 text-xs text-center mb-2">Receber aviso quando as fotos forem reveladas?</p>
-            <div className="flex gap-2">
-              <input
-                type="email"
-                value={guestEmail}
-                onChange={e => setGuestEmail(e.target.value)}
-                placeholder="seu@email.com"
-                className="flex-1 px-3 py-2 bg-zinc-900 border border-zinc-700 rounded-lg text-white text-sm placeholder-zinc-600 focus:outline-none focus:border-zinc-500"
-              />
-              <button
-                type="submit"
-                className="px-3 py-2 bg-zinc-800 text-white text-sm rounded-lg hover:bg-zinc-700 transition-colors"
-              >
-                Avisar
-              </button>
-            </div>
-            <button
-              type="button"
-              onClick={() => setEmailSaved(true)}
-              className="w-full mt-1 text-zinc-600 text-xs hover:text-zinc-500"
-            >
-              Não, obrigado
-            </button>
-          </form>
-        )}
+
+        {/* Last photo thumbnail */}
+        <div className="w-16 h-16 rounded-2xl overflow-hidden bg-zinc-800/80 border border-zinc-700/50">
+          {lastPhotoUrl && (
+            <img src={lastPhotoUrl} alt="Última foto" className="w-full h-full object-cover" />
+          )}
+        </div>
       </div>
     </div>
   )
