@@ -3,8 +3,10 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { Trash2 } from 'lucide-react'
 import { CoverPicker } from '@/components/wizard/cover-picker'
 import { COVER_PRESETS } from '@/lib/cover-presets'
+import { DeleteEventDialog } from '@/components/delete-event-dialog'
 
 interface EventSettings {
   name: string
@@ -39,6 +41,8 @@ export default function EventSettingsPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState('')
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   useEffect(() => {
     async function load() {
@@ -72,6 +76,21 @@ export default function EventSettingsPage() {
     }
     load()
   }, [slug, router])
+
+  async function handleDeleteEvent() {
+    setIsDeleting(true)
+    try {
+      const res = await fetch(`/api/events/${slug}`, { method: 'DELETE' })
+      if (res.ok) {
+        router.push('/dashboard')
+      } else {
+        setError('Não foi possível deletar o evento. Tente novamente.')
+        setShowDeleteDialog(false)
+      }
+    } finally {
+      setIsDeleting(false)
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -233,6 +252,26 @@ export default function EventSettingsPage() {
           </Link>
         </div>
       </form>
+
+      <div className="mt-10 pt-8 border-t border-zinc-800">
+        <p className="text-xs font-semibold uppercase tracking-widest text-zinc-600 mb-4">Zona de perigo</p>
+        <button
+          type="button"
+          onClick={() => setShowDeleteDialog(true)}
+          className="flex items-center gap-2 text-sm text-red-500 hover:text-red-400 transition-colors"
+        >
+          <Trash2 size={15} />
+          Deletar este evento
+        </button>
+      </div>
+
+      <DeleteEventDialog
+        open={showDeleteDialog}
+        onClose={() => setShowDeleteDialog(false)}
+        onConfirm={handleDeleteEvent}
+        isDeleting={isDeleting}
+        eventName={name}
+      />
     </div>
   )
 }

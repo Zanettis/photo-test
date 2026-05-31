@@ -154,3 +154,63 @@ export async function PATCH(
     reveal_at: updated.reveal_at,
   })
 }
+
+export async function DELETE(
+  _request: NextRequest,
+  { params }: { params: Promise<{ slug: string }> }
+) {
+  const { slug } = await params
+
+  const supabase = await createServerSupabaseClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const { data: event } = await supabase
+    .from('events')
+    .select('id, host_id, cover_image_path')
+    .eq('slug', slug)
+    .single()
+
+  if (!event) return NextResponse.json({ error: 'not_found' }, { status: 404 })
+  if (event.host_id !== user.id) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+
+  const serviceClient = createServiceClient()
+
+  const { data: photos } = await serviceClient
+    .from('photos')
+    .select('storage_path')
+    .eq('event_id', event.id)
+
+  const photoPaths = (photos ?? []).map((p: { storage_path: string }) => p.storage_path)
+
+  if (photoPaths.length > 0) {
+    const { error: storageError } = await serviceClient.storage
+      .from('photos')
+      .remove(photoPaths)
+    if (storageError) {
+      console.error('[delete-event] Storage delete failed:', storageError)
+      return NextResponse.json({ error: 'storage_delete_failed' }, { status: 500 })
+    }
+  }
+
+  if (event.cover_image_path && !event.cover_image_path.startsWith('/')) {
+    const { error: coverError } = await serviceClient.storage
+      .from('photos')
+      .remove([event.cover_image_path])
+    if (coverError) {
+      console.warn('[delete-event] Cover image delete failed (non-critical):', coverError)
+    }
+  }
+
+  const { error: dbError } = await supabase
+    .from('events')
+    .delete()
+    .eq('id', event.id)
+
+  if (dbError) {
+    console.error('[delete-event] DB delete failed:', dbError)
+    return NextResponse.json({ error: 'db_delete_failed' }, { status: 500 })
+  }
+
+  return new NextResponse(null, { status: 204 })
+}
