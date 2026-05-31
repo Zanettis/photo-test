@@ -147,11 +147,12 @@ export default function NewEventPage() {
         coverPath = storage_path
       }
 
-      await fetch(`/api/events/${slug}`, {
+      const patchRes = await fetch(`/api/events/${slug}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ cover_image_path: coverPath }),
       })
+      if (!patchRes.ok) throw new Error('cover_patch_failed')
 
       router.push(`/events/${slug}/share`)
     } catch {

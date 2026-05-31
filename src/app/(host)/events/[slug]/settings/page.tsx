@@ -3,11 +3,14 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { CoverPicker } from '@/components/wizard/cover-picker'
+import { COVER_PRESETS } from '@/lib/cover-presets'
 
 interface EventSettings {
   name: string
   closes_at: string | null
   reveal_at: string | null
+  cover_image_path: string | null
 }
 
 // datetime-local value format: "YYYY-MM-DDTHH:MM"
@@ -31,6 +34,8 @@ export default function EventSettingsPage() {
   const [noCloseDate, setNoCloseDate] = useState(false)
   const [revealAt, setRevealAt] = useState('')
   const [noRevealDate, setNoRevealDate] = useState(true)
+  const [selectedCover, setSelectedCover] = useState<string | null>(null)
+  const [coverImageFile, setCoverImageFile] = useState<File | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState('')
@@ -58,6 +63,7 @@ export default function EventSettingsPage() {
           setRevealAt('')
           setNoRevealDate(true)
         }
+        setSelectedCover(ev.cover_image_path ?? COVER_PRESETS[0])
       } catch {
         router.push('/dashboard')
       } finally {
@@ -73,6 +79,26 @@ export default function EventSettingsPage() {
     setError('')
     try {
       const closes_at = noCloseDate ? null : fromDatetimeLocal(closesAt)
+
+      let finalCoverPath: string | null = selectedCover ?? null
+      if (coverImageFile && selectedCover) {
+        const ext = coverImageFile.type === 'image/png' ? 'png' : 'jpg'
+        const coverUrlRes = await fetch(`/api/events/${slug}/cover-url`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ file_ext: ext }),
+        })
+        if (!coverUrlRes.ok) throw new Error('cover_url_failed')
+        const { upload_url, storage_path } = await coverUrlRes.json()
+        const uploadRes = await fetch(upload_url, {
+          method: 'PUT',
+          headers: { 'Content-Type': coverImageFile.type },
+          body: coverImageFile,
+        })
+        if (!uploadRes.ok) throw new Error('upload_failed')
+        finalCoverPath = storage_path
+      }
+
       const res = await fetch(`/api/events/${slug}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -80,6 +106,7 @@ export default function EventSettingsPage() {
           name,
           closes_at,
           reveal_at: noRevealDate ? null : fromDatetimeLocal(revealAt),
+          cover_image_path: finalCoverPath,
         }),
       })
       if (res.ok) {
@@ -130,6 +157,16 @@ export default function EventSettingsPage() {
             onChange={e => setName(e.target.value)}
             maxLength={100}
             className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-white placeholder-zinc-500 focus:outline-none focus:border-zinc-500 transition-colors"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm text-zinc-400 mb-2">Capa do evento</label>
+          <CoverPicker
+            presetPaths={COVER_PRESETS}
+            selected={selectedCover}
+            onSelectPreset={(path) => { setSelectedCover(path); setCoverImageFile(null) }}
+            onSelectFile={(file, blobUrl) => { setCoverImageFile(file); setSelectedCover(blobUrl) }}
           />
         </div>
 

@@ -17,7 +17,7 @@ export async function GET(
 
   const { data: event } = await serviceClient
     .from('events')
-    .select('id, slug, name, event_date, reveal_at, closes_at, host_id')
+    .select('id, slug, name, event_date, reveal_at, closes_at, host_id, cover_image_path')
     .eq('slug', slug)
     .single()
 
@@ -76,6 +76,7 @@ export async function GET(
       event_date: event.event_date,
       reveal_at: event.reveal_at,
       closes_at: event.closes_at,
+      cover_image_path: event.cover_image_path ?? null,
     },
     total: count ?? 0,
     offset,
