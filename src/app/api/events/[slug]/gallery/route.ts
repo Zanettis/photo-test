@@ -42,20 +42,35 @@ export async function GET(
   const offsetRaw = parseInt(searchParams.get('offset') ?? '0', 10)
   const offset = isNaN(offsetRaw) || offsetRaw < 0 ? 0 : offsetRaw
 
-  const { data: photos, error, count } = await serviceClient
-    .from('photos')
-    .select('id, storage_path, tags, tagging_status, uploaded_at', { count: 'exact' })
-    .eq('event_id', event.id)
-    .eq('is_flagged', false)
-    .order('uploaded_at', { ascending: false })
-    .range(offset, offset + limit - 1)
+  const [photosResult, uploaderRows] = await Promise.all([
+    serviceClient
+      .from('photos')
+      .select('id, storage_path, tags, tagging_status, uploaded_at', { count: 'exact' })
+      .eq('event_id', event.id)
+      .eq('is_flagged', false)
+      .order('uploaded_at', { ascending: false })
+      .range(offset, offset + limit - 1),
+    serviceClient
+      .from('photos')
+      .select('uploader_token')
+      .eq('event_id', event.id)
+      .eq('is_flagged', false),
+  ])
 
-  if (error) {
-    console.error('[gallery] Query error:', error)
+  if (photosResult.error) {
+    console.error('[gallery] Query error:', photosResult.error)
     return NextResponse.json({ error: 'Gallery fetch failed' }, { status: 500 })
   }
 
-  const items = (photos ?? []).map((photo) => {
+  const unique_uploaders = uploaderRows.data
+    ? new Set(uploaderRows.data.map(r => r.uploader_token)).size
+    : 0
+
+  const cover_image_url = event.cover_image_path
+    ? serviceClient.storage.from('photos').getPublicUrl(event.cover_image_path).data.publicUrl
+    : null
+
+  const items = (photosResult.data ?? []).map((photo) => {
     const { data: { publicUrl } } = serviceClient.storage
       .from('photos')
       .getPublicUrl(photo.storage_path)
@@ -78,7 +93,9 @@ export async function GET(
       closes_at: event.closes_at,
       cover_image_path: event.cover_image_path ?? null,
     },
-    total: count ?? 0,
+    cover_image_url,
+    unique_uploaders,
+    total: photosResult.count ?? 0,
     offset,
     limit,
     photos: items,
