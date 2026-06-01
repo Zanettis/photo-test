@@ -265,27 +265,25 @@ export default function NewEventPage() {
             ))}
           </div>
 
-          {/* Value chips */}
-          <div className="-mx-6 px-6 overflow-x-auto">
-            <div className="flex gap-2 pb-1" style={{ width: 'max-content' }}>
-              {(durationMode === 'horas' ? horasOpts : diasOpts).map(val => (
-                <button
-                  key={val}
-                  type="button"
-                  onClick={() => setDurationValue(val)}
-                  className={cn(
-                    'rounded-full px-4 py-2 text-sm whitespace-nowrap transition-all',
-                    durationValue === val
-                      ? 'bg-white text-black font-semibold'
-                      : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
-                  )}
-                >
-                  {durationMode === 'horas'
-                    ? `${val}h`
-                    : val === 1 ? '1 dia' : `${val} dias`}
-                </button>
-              ))}
-            </div>
+          {/* Value chips — grid 3×2 para caber sem scroll */}
+          <div className="grid grid-cols-3 gap-2">
+            {(durationMode === 'horas' ? horasOpts : diasOpts).map(val => (
+              <button
+                key={val}
+                type="button"
+                onClick={() => setDurationValue(val)}
+                className={cn(
+                  'rounded-full py-2.5 text-sm font-medium transition-all',
+                  durationValue === val
+                    ? 'bg-white text-black font-semibold'
+                    : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
+                )}
+              >
+                {durationMode === 'horas'
+                  ? `${val}h`
+                  : val === 1 ? '1 dia' : `${val} dias`}
+              </button>
+            ))}
           </div>
 
           {preview && (
@@ -484,10 +482,12 @@ export default function NewEventPage() {
   }
 
   // W6 — Convidados + Fotos (paywall — último step, submit aqui)
-  const selectedTier = GUEST_TIERS.find(t => t.guest_cap === (data.guest_cap ?? 5)) ?? GUEST_TIERS[0]
+  // Usar !== undefined (não ??) para preservar null = "sem limite"
+  const guestCap = data.guest_cap !== undefined ? data.guest_cap : 5
+  const selectedTier = GUEST_TIERS.find(t => t.guest_cap === guestCap) ?? GUEST_TIERS[0]
   const isUnlimited = data.shot_cap === null
-  const totalPrice = calcEventPrice(data.guest_cap ?? 5, data.shot_cap ?? 10)
-  const addonPrice = unlimitedPhotosAddon(data.guest_cap ?? 5)
+  const totalPrice = calcEventPrice(guestCap, data.shot_cap ?? 10)
+  const addonPrice = unlimitedPhotosAddon(guestCap)
 
   return (
     <WizardShell
@@ -523,7 +523,7 @@ export default function NewEventPage() {
         {/* Avatar grid — tap para selecionar tier */}
         <AvatarTierGrid
           tiers={GUEST_TIERS}
-          selectedCap={data.guest_cap ?? 5}
+          selectedCap={guestCap}
           onSelect={cap => updateField('guest_cap', cap)}
         />
 
