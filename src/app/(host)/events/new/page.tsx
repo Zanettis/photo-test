@@ -9,7 +9,7 @@ import { useWizardState } from '@/hooks/use-wizard-state'
 import { GUEST_TIERS, calcEventPrice, unlimitedPhotosAddon, formatPrice } from '@/lib/pricing'
 import { COVER_PRESETS } from '@/lib/cover-presets'
 import { cn } from '@/lib/utils'
-import { Sparkles, Eye } from 'lucide-react'
+import { Sparkles, Eye, EyeOff } from 'lucide-react'
 
 const NAME_SUGGESTIONS = ['Casamento', 'Aniversário', 'Formatura', 'Churrasco', 'Confraternização']
 
@@ -70,8 +70,6 @@ export default function NewEventPage() {
 
   // W4
   const [revealMode, setRevealMode] = useState<'immediate' | 'scheduled'>('immediate')
-  const [revealDateInput, setRevealDateInput] = useState('')
-  const [revealTimeInput, setRevealTimeInput] = useState('')
 
   // W5
   const [selectedCover, setSelectedCover] = useState<string | null>(null)
@@ -136,17 +134,8 @@ export default function NewEventPage() {
     setDateError('')
   }
 
-  function buildRevealAt(): string | null {
-    if (revealMode === 'immediate') return null
-    const iso = parseDateInput(revealDateInput)
-    if (!iso) return null
-    const time = revealTimeInput || '12:00'
-    return new Date(`${iso}T${time}:00`).toISOString()
-  }
-
   function handleRevealNext() {
-    const revealAt = buildRevealAt()
-    updateField('reveal_at', revealAt)
+    updateField('reveal_at', revealMode === 'scheduled' ? (data.closes_at ?? null) : null)
     nextStep()
   }
 
@@ -387,8 +376,117 @@ export default function NewEventPage() {
     )
   }
 
-  // W4 — Convidados + Fotos
-  if (step === 4) {
+  // W4 — Revelação
+  if (step === 4) return (
+    <WizardShell
+      currentStep={4} totalSteps={6}
+      onBack={prevStep}
+      onExit={() => router.push('/dashboard')}
+      cta={
+        <button
+          onClick={handleRevealNext}
+          className="px-6 py-3 bg-white text-black font-semibold rounded-2xl flex items-center gap-2"
+        >
+          Continuar →
+        </button>
+      }
+    >
+      <div className="flex flex-col gap-5 pt-6">
+        <div>
+          <h1 className="text-4xl font-bold text-white leading-tight">Quando revelar as fotos?</h1>
+          <p className="text-zinc-500 mt-3 text-sm">Crie expectativa revelando a galeria depois do evento</p>
+        </div>
+
+        {/* Photo preview cards */}
+        <div className="flex gap-3">
+          {[
+            { name: 'Ana.S', gradient: 'linear-gradient(160deg, #92400e, #1c1917)' },
+            { name: 'Pedro.K', gradient: 'linear-gradient(160deg, #1e3a5f, #0f172a)' },
+          ].map(card => (
+            <div
+              key={card.name}
+              className="flex-1 rounded-2xl overflow-hidden relative"
+              style={{ aspectRatio: '3/4' }}
+            >
+              <div
+                className="absolute inset-0"
+                style={{
+                  background: card.gradient,
+                  filter: revealMode === 'scheduled'
+                    ? 'blur(10px) saturate(0.65)'
+                    : 'blur(0px) saturate(1)',
+                  transition: 'filter 450ms cubic-bezier(0.4, 0, 0.2, 1)',
+                  transform: 'scale(1.05)',
+                }}
+              />
+              <span className="absolute top-3 left-3 text-white text-xs font-medium z-10 drop-shadow-sm">
+                {card.name}
+              </span>
+              {revealMode === 'scheduled' && (
+                <div className="absolute inset-x-0 bottom-3 mx-3 bg-black/70 backdrop-blur-sm rounded-xl px-3 py-2 text-center z-10">
+                  <p className="text-white text-xs">Revela após o evento</p>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+
+        {/* Option buttons */}
+        <div className="flex flex-col gap-3">
+          <button
+            type="button"
+            onClick={() => setRevealMode('immediate')}
+            className={cn(
+              'rounded-2xl border p-4 text-left transition-all',
+              revealMode === 'immediate' ? 'border-white bg-zinc-800' : 'border-zinc-700 hover:border-zinc-500'
+            )}
+          >
+            <div className="flex items-center gap-3">
+              <div
+                key={revealMode === 'immediate' ? 'eye-on' : 'eye-off'}
+                style={revealMode === 'immediate' ? { animation: 'option-pop 350ms ease-out' } : {}}
+              >
+                <Eye size={18} className={revealMode === 'immediate' ? 'text-white' : 'text-zinc-500'} />
+              </div>
+              <div>
+                <p className={`font-semibold text-sm ${revealMode === 'immediate' ? 'text-white' : 'text-zinc-300'}`}>
+                  Durante o evento
+                </p>
+                <p className="text-xs text-zinc-500 mt-0.5">Convidados veem as fotos assim que enviam</p>
+              </div>
+            </div>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setRevealMode('scheduled')}
+            className={cn(
+              'rounded-2xl border p-4 text-left transition-all',
+              revealMode === 'scheduled' ? 'border-white bg-zinc-800' : 'border-zinc-700 hover:border-zinc-500'
+            )}
+          >
+            <div className="flex items-center gap-3">
+              <div
+                key={revealMode === 'scheduled' ? 'eye-hidden' : 'eye-visible'}
+                style={revealMode === 'scheduled' ? { animation: 'option-shimmer 600ms ease-in-out' } : {}}
+              >
+                <EyeOff size={18} className={revealMode === 'scheduled' ? 'text-white' : 'text-zinc-500'} />
+              </div>
+              <div>
+                <p className={`font-semibold text-sm ${revealMode === 'scheduled' ? 'text-white' : 'text-zinc-300'}`}>
+                  Depois do evento
+                </p>
+                <p className="text-xs text-zinc-500 mt-0.5">Galeria fica oculta até o evento encerrar</p>
+              </div>
+            </div>
+          </button>
+        </div>
+      </div>
+    </WizardShell>
+  )
+
+  // W5 — Convidados + Fotos
+  if (step === 5) {
     const selectedTier = GUEST_TIERS.find(t => t.guest_cap === (data.guest_cap ?? 5)) ?? GUEST_TIERS[0]
     const isUnlimited = data.shot_cap === null
     const totalPrice = calcEventPrice(data.guest_cap ?? 5, data.shot_cap ?? 10)
@@ -396,7 +494,7 @@ export default function NewEventPage() {
 
     return (
       <WizardShell
-        currentStep={4} totalSteps={6}
+        currentStep={5} totalSteps={6}
         onBack={prevStep}
         onExit={() => router.push('/dashboard')}
         cta={
@@ -499,94 +597,6 @@ export default function NewEventPage() {
       </WizardShell>
     )
   }
-
-  // W5 — Revelação
-  if (step === 5) return (
-    <WizardShell
-      currentStep={5} totalSteps={6}
-      onBack={prevStep}
-      onExit={() => router.push('/dashboard')}
-      cta={
-        <button
-          onClick={handleRevealNext}
-          className="px-6 py-3 bg-white text-black font-semibold rounded-2xl flex items-center gap-2"
-        >
-          Próximo →
-        </button>
-      }
-    >
-      <div className="flex flex-col gap-6 pt-6">
-        <div>
-          <h1 className="text-4xl font-bold text-white leading-tight">Quando revelar as fotos?</h1>
-          <p className="text-zinc-500 mt-3 text-sm">Crie expectativa revelando a galeria depois do evento</p>
-        </div>
-
-        <div className="flex flex-col gap-3">
-          <button
-            type="button"
-            onClick={() => setRevealMode('immediate')}
-            className={`rounded-2xl border p-4 text-left transition-all ${revealMode === 'immediate' ? 'border-white bg-zinc-800' : 'border-zinc-700 hover:border-zinc-500'}`}
-          >
-            <p className={`font-semibold ${revealMode === 'immediate' ? 'text-white' : 'text-zinc-300'}`}>Mostrar na hora</p>
-            <p className="text-xs text-zinc-500 mt-1">Convidados veem as fotos assim que enviam</p>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setRevealMode('scheduled')}
-            className={`rounded-2xl border p-4 text-left transition-all ${revealMode === 'scheduled' ? 'border-white bg-zinc-800' : 'border-zinc-700 hover:border-zinc-500'}`}
-          >
-            <p className={`font-semibold ${revealMode === 'scheduled' ? 'text-white' : 'text-zinc-300'}`}>Agendar revelação</p>
-            <p className="text-xs text-zinc-500 mt-1">Galeria fica oculta até a data escolhida</p>
-          </button>
-        </div>
-
-        {revealMode === 'scheduled' && (
-          <div className="flex flex-col gap-3">
-            <input
-              type="text"
-              inputMode="numeric"
-              value={revealDateInput}
-              onChange={e => setRevealDateInput(maskDate(e.target.value))}
-              placeholder="DD/MM/AAAA"
-              maxLength={10}
-              className="w-full px-4 py-3 bg-zinc-900 border border-zinc-700 rounded-2xl text-white font-mono placeholder-zinc-600 focus:outline-none focus:border-zinc-500"
-            />
-            <input
-              type="time"
-              value={revealTimeInput}
-              onChange={e => setRevealTimeInput(e.target.value)}
-              className="w-full px-4 py-3 bg-zinc-900 border border-zinc-700 rounded-2xl text-white focus:outline-none focus:border-zinc-500"
-            />
-            <div className="flex gap-2 flex-wrap">
-              <SuggestionChips
-                options={['No dia do evento', '48h após']}
-                onSelect={label => {
-                  if (label === 'No dia do evento' && data.event_date) {
-                    setRevealDateInput(toDateInput(data.event_date))
-                    setRevealTimeInput('12:00')
-                  } else if (label === '48h após' && data.event_date) {
-                    const d = new Date(data.event_date + 'T12:00:00')
-                    d.setDate(d.getDate() + 2)
-                    setRevealDateInput(toDateInput(d.toISOString().slice(0, 10)))
-                    setRevealTimeInput('12:00')
-                  }
-                }}
-              />
-            </div>
-          </div>
-        )}
-
-        <button
-          type="button"
-          onClick={() => { updateField('reveal_at', null); setRevealMode('immediate'); nextStep() }}
-          className="text-zinc-500 text-sm hover:text-zinc-300 transition-colors"
-        >
-          Pular → revelar imediatamente
-        </button>
-      </div>
-    </WizardShell>
-  )
 
   // W6 — Design da capa
   return (
