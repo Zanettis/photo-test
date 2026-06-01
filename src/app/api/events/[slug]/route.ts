@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient, createServiceClient } from '@/lib/supabase'
+import { VALID_GUEST_CAPS } from '@/lib/pricing'
+import type { Json } from '@/types/database'
+
+const VALID_SHOT_CAPS = [5, 10, 20, null] as const
 
 export async function GET(
   request: NextRequest,
@@ -63,7 +67,7 @@ export async function PATCH(
 
   const { data: event } = await supabase
     .from('events')
-    .select('id, slug, name, host_id, event_date, closes_at, closes_notified_at')
+    .select('id, slug, name, host_id, event_date, closes_at, closes_notified_at, settings')
     .eq('slug', slug)
     .single()
 
@@ -77,15 +81,19 @@ export async function PATCH(
     return NextResponse.json({ error: 'invalid_json' }, { status: 400 })
   }
 
-  const { name, closes_at, reveal_at, cover_image_path } = body as {
+  const { name, closes_at, reveal_at, cover_image_path, guest_cap, shot_cap, settings } = body as {
     name?: unknown; closes_at?: unknown; reveal_at?: unknown; cover_image_path?: unknown
+    guest_cap?: unknown; shot_cap?: unknown; settings?: unknown
   }
 
-  if (name === undefined && closes_at === undefined && reveal_at === undefined && cover_image_path === undefined) {
+  if (name === undefined && closes_at === undefined && reveal_at === undefined && cover_image_path === undefined && guest_cap === undefined && shot_cap === undefined && settings === undefined) {
     return NextResponse.json({ error: 'nothing_to_update' }, { status: 400 })
   }
 
-  const patch: { name?: string; closes_at?: string | null; reveal_at?: string | null; cover_image_path?: string | null } = {}
+  const patch: {
+    name?: string; closes_at?: string | null; reveal_at?: string | null; cover_image_path?: string | null
+    guest_cap?: number | null; shot_cap?: number | null; settings?: Json
+  } = {}
 
   if (name !== undefined) {
     if (typeof name !== 'string' || name.trim().length === 0 || name.trim().length > 100) {
@@ -133,11 +141,35 @@ export async function PATCH(
     }
   }
 
+  if (guest_cap !== undefined) {
+    if (!VALID_GUEST_CAPS.includes(guest_cap as never)) {
+      return NextResponse.json({ error: 'invalid_guest_cap' }, { status: 400 })
+    }
+    patch.guest_cap = guest_cap as number | null
+  }
+
+  if (shot_cap !== undefined) {
+    if (!VALID_SHOT_CAPS.includes(shot_cap as never)) {
+      return NextResponse.json({ error: 'invalid_shot_cap' }, { status: 400 })
+    }
+    patch.shot_cap = shot_cap as number | null
+  }
+
+  if (settings !== undefined) {
+    if (typeof settings !== 'object' || Array.isArray(settings) || settings === null) {
+      return NextResponse.json({ error: 'invalid_settings' }, { status: 400 })
+    }
+    const current = (typeof event.settings === 'object' && !Array.isArray(event.settings) && event.settings !== null)
+      ? event.settings as Record<string, Json>
+      : {}
+    patch.settings = { ...current, ...(settings as Record<string, Json>) }
+  }
+
   const { data: updated, error } = await supabase
     .from('events')
     .update(patch)
     .eq('id', event.id)
-    .select('id, slug, name, event_date, closes_at, reveal_at')
+    .select('id, slug, name, event_date, closes_at, reveal_at, guest_cap, shot_cap, settings')
     .single()
 
   if (error || !updated) {
@@ -152,6 +184,9 @@ export async function PATCH(
     event_date: updated.event_date,
     closes_at: updated.closes_at,
     reveal_at: updated.reveal_at,
+    guest_cap: updated.guest_cap,
+    shot_cap: updated.shot_cap,
+    settings: updated.settings,
   })
 }
 

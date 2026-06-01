@@ -17,7 +17,7 @@ export async function GET(
 
   const { data: event } = await serviceClient
     .from('events')
-    .select('id, slug, name, event_date, reveal_at, closes_at, host_id, cover_image_path')
+    .select('id, slug, name, event_date, reveal_at, closes_at, host_id, cover_image_path, guest_cap, shot_cap, settings')
     .eq('slug', slug)
     .single()
 
@@ -42,14 +42,36 @@ export async function GET(
   const offsetRaw = parseInt(searchParams.get('offset') ?? '0', 10)
   const offset = isNaN(offsetRaw) || offsetRaw < 0 ? 0 : offsetRaw
 
+  const eventSettings = (typeof event.settings === 'object' && !Array.isArray(event.settings) && event.settings !== null)
+    ? event.settings as Record<string, unknown>
+    : {}
+  const publicGallery = eventSettings.public_gallery !== false
+  const uploaderToken = request.headers.get('X-Uploader-Token')
+
+  let photoQuery = serviceClient
+    .from('photos')
+    .select('id, storage_path, tags, tagging_status, uploaded_at', { count: 'exact' })
+    .eq('event_id', event.id)
+    .eq('is_flagged', false)
+    .order('uploaded_at', { ascending: false })
+    .range(offset, offset + limit - 1)
+
+  if (!isHost && !publicGallery) {
+    if (!uploaderToken) {
+      return NextResponse.json({
+        event: {
+          id: event.id, slug: event.slug, name: event.name, event_date: event.event_date,
+          reveal_at: event.reveal_at, closes_at: event.closes_at, cover_image_path: event.cover_image_path ?? null,
+          guest_cap: event.guest_cap, shot_cap: event.shot_cap, settings: eventSettings,
+        },
+        cover_image_url: null, unique_uploaders: 0, total: 0, offset, limit, photos: [],
+      })
+    }
+    photoQuery = photoQuery.eq('uploader_token', uploaderToken)
+  }
+
   const [photosResult, uploaderRows] = await Promise.all([
-    serviceClient
-      .from('photos')
-      .select('id, storage_path, tags, tagging_status, uploaded_at', { count: 'exact' })
-      .eq('event_id', event.id)
-      .eq('is_flagged', false)
-      .order('uploaded_at', { ascending: false })
-      .range(offset, offset + limit - 1),
+    photoQuery,
     serviceClient
       .from('photos')
       .select('uploader_token')
@@ -92,6 +114,9 @@ export async function GET(
       reveal_at: event.reveal_at,
       closes_at: event.closes_at,
       cover_image_path: event.cover_image_path ?? null,
+      guest_cap: event.guest_cap,
+      shot_cap: event.shot_cap,
+      settings: eventSettings,
     },
     cover_image_url,
     unique_uploaders,
