@@ -218,7 +218,7 @@ export default function NewEventPage() {
   // W3 — Duração
   if (step === 3) {
     const horasOpts = [2, 4, 6, 8, 12, 24]
-    const diasOpts = [1, 2, 3, 5, 7, 14]
+    const diasOpts = [1, 3, 7, 14, 30]
     const preview = data.event_date
       ? closesAtPreview(data.event_date, durationMode, durationValue)
       : ''
