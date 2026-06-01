@@ -3,6 +3,7 @@ import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { WizardShell } from '@/components/wizard/wizard-shell'
 import { SuggestionChips } from '@/components/wizard/suggestion-chips'
+import { MiniCalendar } from '@/components/wizard/mini-calendar'
 import { PhoneMockup } from '@/components/wizard/phone-mockup'
 import { CoverPicker } from '@/components/wizard/cover-picker'
 import { useWizardState } from '@/hooks/use-wizard-state'
@@ -13,44 +14,6 @@ import { Sparkles, Eye, EyeOff } from 'lucide-react'
 
 const NAME_SUGGESTIONS = ['Casamento', 'Aniversário', 'Formatura', 'Churrasco', 'Confraternização']
 
-function parseDateInput(raw: string): string | null {
-  const digits = raw.replace(/\D/g, '')
-  if (digits.length < 8) return null
-  const day = digits.slice(0, 2)
-  const month = digits.slice(2, 4)
-  const year = digits.slice(4, 8)
-  const d = parseInt(day), m = parseInt(month), y = parseInt(year)
-  if (d < 1 || d > 31 || m < 1 || m > 12 || y < 2000 || y > 2099) return null
-  return `${year}-${month}-${day}`
-}
-
-function datePreview(isoDate: string): string {
-  try {
-    return new Date(isoDate + 'T12:00:00').toLocaleDateString('pt-BR', {
-      weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
-    })
-  } catch { return '' }
-}
-
-function getNextSaturday(): string {
-  const d = new Date()
-  const day = d.getDay()
-  const diff = day === 6 ? 7 : 6 - day
-  d.setDate(d.getDate() + diff)
-  return d.toISOString().slice(0, 10)
-}
-
-function toDateInput(iso: string): string {
-  const [y, m, day] = iso.split('-')
-  return `${day}/${m}/${y}`
-}
-
-function maskDate(raw: string): string {
-  const digits = raw.replace(/\D/g, '').slice(0, 8)
-  if (digits.length <= 2) return digits
-  if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`
-  return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`
-}
 
 export default function NewEventPage() {
   const router = useRouter()
@@ -59,10 +22,6 @@ export default function NewEventPage() {
   // W1
   const [nameError, setNameError] = useState('')
   const nameInputRef = useRef<HTMLInputElement>(null)
-
-  // W2
-  const [dateInput, setDateInput] = useState('')
-  const [dateError, setDateError] = useState('')
 
   // W3 — Duração
   const [durationMode, setDurationMode] = useState<'horas' | 'dias'>('horas')
@@ -97,10 +56,7 @@ export default function NewEventPage() {
   }
 
   function handleDateNext() {
-    const iso = parseDateInput(dateInput)
-    if (!iso) { setDateError('Data inválida. Use DD/MM/AAAA'); return }
-    setDateError('')
-    updateField('event_date', iso)
+    if (!data.event_date) return
     const def = inferDurationDefault(data.name ?? '')
     setDurationMode(def.mode)
     setDurationValue(def.value)
@@ -126,12 +82,6 @@ export default function NewEventPage() {
         hour: '2-digit', minute: '2-digit',
       })
     } catch { return '' }
-  }
-
-  function setQuickDate(iso: string) {
-    updateField('event_date', iso)
-    setDateInput(toDateInput(iso))
-    setDateError('')
   }
 
   function handleRevealNext() {
@@ -234,64 +184,35 @@ export default function NewEventPage() {
   }
 
   // W2 — Data
-  if (step === 2) {
-    const previewIso = parseDateInput(dateInput)
-    return (
-      <WizardShell
-        currentStep={2} totalSteps={6}
-        onBack={prevStep}
-        onExit={() => router.push('/dashboard')}
-        cta={
-          <button
-            onClick={handleDateNext}
-            disabled={!dateInput}
-            className="px-6 py-3 bg-white text-black font-semibold rounded-2xl disabled:opacity-30 transition-opacity flex items-center gap-2"
-          >
-            Continuar →
-          </button>
-        }
-      >
-        <div className="flex flex-col gap-6 pt-6">
-          <div>
-            <h1 className="text-4xl font-bold text-white leading-tight">Quando é o evento?</h1>
-            <p className="text-zinc-500 mt-3 text-sm">A data ajuda a organizar sua galeria</p>
-          </div>
-
-          <div>
-            <input
-              type="text"
-              inputMode="numeric"
-              autoFocus
-              value={dateInput}
-              onChange={e => {
-                setDateInput(maskDate(e.target.value))
-                setDateError('')
-              }}
-              onKeyDown={e => e.key === 'Enter' && handleDateNext()}
-              placeholder="DD/MM/AAAA"
-              maxLength={10}
-              className="w-full px-4 py-4 bg-zinc-900 border border-zinc-700 rounded-2xl text-white text-xl placeholder-zinc-600 focus:outline-none focus:border-zinc-500 transition-colors font-mono"
-            />
-            {previewIso && !dateError && (
-              <p className="text-zinc-400 text-sm mt-2 capitalize">{datePreview(previewIso)}</p>
-            )}
-            {dateError && <p className="text-red-400 text-sm mt-2">{dateError}</p>}
-          </div>
-
-          <div>
-            <p className="text-xs text-zinc-600 uppercase tracking-widest mb-3">Atalhos</p>
-            <SuggestionChips
-              options={['Hoje', 'Próximo sábado']}
-              onSelect={label => {
-                const iso = label === 'Hoje' ? new Date().toISOString().slice(0, 10) : getNextSaturday()
-                setQuickDate(iso)
-              }}
-            />
-          </div>
+  if (step === 2) return (
+    <WizardShell
+      currentStep={2} totalSteps={6}
+      onBack={prevStep}
+      onExit={() => router.push('/dashboard')}
+      cta={
+        <button
+          onClick={handleDateNext}
+          disabled={!data.event_date}
+          className="px-6 py-3 bg-white text-black font-semibold rounded-2xl disabled:opacity-30 transition-opacity flex items-center gap-2"
+        >
+          Continuar →
+        </button>
+      }
+    >
+      <div className="flex flex-col gap-6 pt-6">
+        <div>
+          <h1 className="text-4xl font-bold text-white leading-tight">Quando é o evento?</h1>
+          <p className="text-zinc-500 mt-3 text-sm">Toque no dia para selecionar a data</p>
         </div>
-      </WizardShell>
-    )
-  }
+
+        <MiniCalendar
+          value={data.event_date ?? null}
+          onChange={iso => updateField('event_date', iso)}
+          minDate={new Date().toISOString().slice(0, 10)}
+        />
+      </div>
+    </WizardShell>
+  )
 
   // W3 — Duração
   if (step === 3) {
