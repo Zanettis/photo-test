@@ -6,6 +6,7 @@ import { SuggestionChips } from '@/components/wizard/suggestion-chips'
 import { MiniCalendar } from '@/components/wizard/mini-calendar'
 import { PhoneMockup } from '@/components/wizard/phone-mockup'
 import { CoverPicker } from '@/components/wizard/cover-picker'
+import { AvatarTierGrid } from '@/components/wizard/avatar-tier-grid'
 import { useWizardState } from '@/hooks/use-wizard-state'
 import { GUEST_TIERS, calcEventPrice, unlimitedPhotosAddon, formatPrice } from '@/lib/pricing'
 import { COVER_PRESETS } from '@/lib/cover-presets'
@@ -406,194 +407,183 @@ export default function NewEventPage() {
     </WizardShell>
   )
 
-  // W5 — Convidados + Fotos
+  // W5 — Design da capa (agora antes do paywall)
   if (step === 5) {
-    const selectedTier = GUEST_TIERS.find(t => t.guest_cap === (data.guest_cap ?? 5)) ?? GUEST_TIERS[0]
-    const isUnlimited = data.shot_cap === null
-    const totalPrice = calcEventPrice(data.guest_cap ?? 5, data.shot_cap ?? 10)
-    const addonPrice = unlimitedPhotosAddon(data.guest_cap ?? 5)
-
     return (
-      <WizardShell
-        currentStep={5} totalSteps={6}
-        onBack={prevStep}
-        onExit={() => router.push('/dashboard')}
-        cta={
-          <button
-            onClick={nextStep}
-            className="px-6 py-3 bg-white text-black font-semibold rounded-2xl flex items-center gap-2"
-          >
-            Continuar →
-          </button>
-        }
-      >
-        <div className="flex flex-col gap-5 pt-6 pb-4 overflow-y-auto">
-          {/* Seção 1: Convidados */}
-          <div>
-            <h1 className="text-3xl font-bold text-white leading-tight">Quantos convidados?</h1>
-            <p className="text-zinc-500 mt-2 text-sm">Número de pessoas que vão enviar fotos</p>
-          </div>
-
-          <div className="-mx-6 px-6 overflow-x-auto">
-            <div className="flex gap-2 pb-1" style={{ width: 'max-content' }}>
-              {GUEST_TIERS.map(tier => (
-                <button
-                  key={String(tier.guest_cap)}
-                  type="button"
-                  onClick={() => updateField('guest_cap', tier.guest_cap)}
-                  className={cn(
-                    'rounded-full px-4 py-2 text-sm whitespace-nowrap transition-all',
-                    (data.guest_cap ?? 5) === tier.guest_cap
-                      ? 'bg-white text-black font-semibold'
-                      : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
-                  )}
-                >
-                  {tier.label}
-                </button>
-              ))}
+      <>
+        <WizardShell
+          currentStep={5} totalSteps={6}
+          onBack={prevStep}
+          onExit={() => router.push('/dashboard')}
+          cta={
+            <button
+              onClick={nextStep}
+              disabled={!selectedCover}
+              className="px-6 py-3 bg-white text-black font-semibold rounded-2xl disabled:opacity-30 transition-opacity flex items-center gap-2"
+            >
+              Continuar →
+            </button>
+          }
+        >
+          <div className="flex flex-col h-full pt-4 pb-2">
+            <div className="mb-4">
+              <h1 className="text-3xl font-bold text-white leading-tight">Design do seu evento.</h1>
+              <p className="text-zinc-500 mt-2 text-sm leading-relaxed">
+                Essa capa é a primeira coisa que seus convidados vão ver.
+              </p>
             </div>
-          </div>
 
-          <div className="flex items-baseline gap-2">
-            <span className="text-3xl font-bold text-white">
-              {formatPrice(totalPrice)}
-            </span>
-            {totalPrice > 0 && <span className="text-zinc-500 text-sm">/evento</span>}
-            {selectedTier.price === 0 && <span className="text-zinc-500 text-sm">para sempre</span>}
-          </div>
+            <div className="flex-1 flex items-center justify-center py-2">
+              <PhoneMockup
+                eventName={data.name ?? ''}
+                eventDate={data.event_date ?? ''}
+                shotCap={data.shot_cap ?? null}
+                coverPreview={selectedCover}
+              />
+            </div>
 
-          <div className="border-t border-zinc-800" />
-
-          {/* Seção 2: Fotos */}
-          <div className="flex flex-col gap-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-zinc-600 uppercase tracking-widest">Fotos ilimitadas</p>
-                <p className="text-zinc-400 text-sm mt-0.5">
-                  {isUnlimited
-                    ? `+ ${formatPrice(addonPrice)} incluído`
-                    : 'Adicionar por ' + formatPrice(addonPrice)}
-                </p>
-              </div>
+            <div className="flex gap-3 pb-2">
               <button
                 type="button"
-                onClick={() => updateField('shot_cap', isUnlimited ? 10 : null)}
-                aria-label="Fotos ilimitadas"
-                className={cn(
-                  'relative w-12 h-6 rounded-full transition-colors shrink-0',
-                  isUnlimited ? 'bg-white' : 'bg-zinc-700'
-                )}
+                onClick={() => setShowCoverPicker(true)}
+                className="flex items-center gap-2 px-5 py-2.5 bg-zinc-800 hover:bg-zinc-700 text-white text-sm font-medium rounded-full transition-colors"
               >
-                <span className={cn(
-                  'absolute top-1 w-4 h-4 rounded-full transition-transform',
-                  isUnlimited ? 'translate-x-7 bg-black' : 'translate-x-1 bg-zinc-400'
-                )} />
+                <Sparkles size={14} />
+                Editar Capa
+              </button>
+              <button
+                type="button"
+                disabled
+                className="flex items-center gap-2 px-5 py-2.5 bg-zinc-800 text-zinc-500 text-sm font-medium rounded-full cursor-default"
+              >
+                <Eye size={14} />
+                Preview
               </button>
             </div>
-
-            {!isUnlimited && (
-              <div>
-                <p className="text-xs text-zinc-600 uppercase tracking-widest mb-2">Fotos por pessoa</p>
-                <div className="flex gap-2">
-                  {[5, 10, 20].map(cap => (
-                    <button
-                      key={cap}
-                      type="button"
-                      onClick={() => updateField('shot_cap', cap)}
-                      className={cn(
-                        'rounded-full px-5 py-2 text-sm transition-all',
-                        data.shot_cap === cap
-                          ? 'bg-white text-black font-semibold'
-                          : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
-                      )}
-                    >
-                      {cap}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
-        </div>
-      </WizardShell>
+        </WizardShell>
+
+        {showCoverPicker && (
+          <CoverPicker
+            mode="sheet"
+            presetPaths={COVER_PRESETS}
+            selected={selectedCover}
+            onSelectPreset={path => {
+              setSelectedCover(path)
+              setCoverImageFile(null)
+            }}
+            onSelectFile={(file, blobUrl) => {
+              setCoverImageFile(file)
+              setSelectedCover(blobUrl)
+            }}
+            onClose={() => setShowCoverPicker(false)}
+          />
+        )}
+      </>
     )
   }
 
-  // W6 — Design da capa
+  // W6 — Convidados + Fotos (paywall — último step, submit aqui)
+  const selectedTier = GUEST_TIERS.find(t => t.guest_cap === (data.guest_cap ?? 5)) ?? GUEST_TIERS[0]
+  const isUnlimited = data.shot_cap === null
+  const totalPrice = calcEventPrice(data.guest_cap ?? 5, data.shot_cap ?? 10)
+  const addonPrice = unlimitedPhotosAddon(data.guest_cap ?? 5)
+
   return (
-    <>
-      <WizardShell
-        currentStep={6} totalSteps={6}
-        onBack={prevStep}
-        onExit={() => router.push('/dashboard')}
-        cta={
-          <button
-            onClick={handleDesignSubmit}
-            disabled={!selectedCover || step5Loading}
-            className="px-6 py-3 bg-white text-black font-semibold rounded-2xl disabled:opacity-30 disabled:cursor-not-allowed transition-opacity flex items-center gap-2"
-          >
-            {step5Loading ? 'Criando...' : 'Criar evento →'}
-          </button>
-        }
-      >
-        <div className="flex flex-col h-full pt-4 pb-2">
-          <div className="mb-4">
-            <h1 className="text-3xl font-bold text-white leading-tight">Design do seu evento.</h1>
-            <p className="text-zinc-500 mt-2 text-sm leading-relaxed">
-              Essa capa é a primeira coisa que seus convidados vão ver.
-            </p>
-          </div>
+    <WizardShell
+      currentStep={6} totalSteps={6}
+      onBack={prevStep}
+      onExit={() => router.push('/dashboard')}
+      cta={
+        <button
+          onClick={handleDesignSubmit}
+          disabled={step5Loading}
+          className="px-6 py-3 bg-white text-black font-semibold rounded-2xl disabled:opacity-30 disabled:cursor-not-allowed transition-opacity flex items-center gap-2"
+        >
+          {step5Loading ? 'Criando...' : 'Criar evento →'}
+        </button>
+      }
+    >
+      <div className="flex flex-col gap-6 pt-6">
+        <div>
+          <h1 className="text-3xl font-bold text-white leading-tight">Quantos convidados?</h1>
+          <p className="text-zinc-500 mt-2 text-sm">Toque para selecionar o número de participantes</p>
+        </div>
 
-          <div className="flex-1 flex items-center justify-center py-2">
-            <PhoneMockup
-              eventName={data.name ?? ''}
-              eventDate={data.event_date ?? ''}
-              shotCap={data.shot_cap ?? null}
-              coverPreview={selectedCover}
-            />
-          </div>
+        {/* Tier label + preço */}
+        <div className="flex items-baseline justify-between">
+          <span className="text-white text-base font-medium">
+            {selectedTier.label} {selectedTier.sublabel}
+          </span>
+          <span className="text-zinc-400 text-sm">
+            {totalPrice === 0 ? 'Grátis' : formatPrice(selectedTier.price)}
+          </span>
+        </div>
 
-          <div className="flex gap-3 pb-2">
+        {/* Avatar grid — tap para selecionar tier */}
+        <AvatarTierGrid
+          tiers={GUEST_TIERS}
+          selectedCap={data.guest_cap ?? 5}
+          onSelect={cap => updateField('guest_cap', cap)}
+        />
+
+        <div className="border-t border-zinc-800" />
+
+        {/* Fotos */}
+        <div className="flex flex-col gap-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs text-zinc-600 uppercase tracking-widest">Fotos ilimitadas</p>
+              <p className="text-zinc-500 text-sm mt-0.5">
+                {isUnlimited
+                  ? `+ ${formatPrice(addonPrice)} incluído`
+                  : `Adicionar por ${formatPrice(addonPrice)}`}
+              </p>
+            </div>
             <button
               type="button"
-              onClick={() => setShowCoverPicker(true)}
-              className="flex items-center gap-2 px-5 py-2.5 bg-zinc-800 hover:bg-zinc-700 text-white text-sm font-medium rounded-full transition-colors"
+              onClick={() => updateField('shot_cap', isUnlimited ? 10 : null)}
+              aria-label="Fotos ilimitadas"
+              className={cn(
+                'relative w-12 h-6 rounded-full transition-colors shrink-0',
+                isUnlimited ? 'bg-white' : 'bg-zinc-700'
+              )}
             >
-              <Sparkles size={14} />
-              Editar Capa
-            </button>
-            <button
-              type="button"
-              disabled
-              className="flex items-center gap-2 px-5 py-2.5 bg-zinc-800 text-zinc-500 text-sm font-medium rounded-full cursor-default"
-            >
-              <Eye size={14} />
-              Preview
+              <span className={cn(
+                'absolute top-1 w-4 h-4 rounded-full transition-transform',
+                isUnlimited ? 'translate-x-7 bg-black' : 'translate-x-1 bg-zinc-400'
+              )} />
             </button>
           </div>
 
-          {(error || step5Error) && (
-            <p className="text-red-400 text-sm pb-2">{step5Error ?? error}</p>
+          {!isUnlimited && (
+            <div>
+              <p className="text-xs text-zinc-600 uppercase tracking-widest mb-2">Fotos por pessoa</p>
+              <div className="flex gap-2">
+                {[5, 10, 20].map(cap => (
+                  <button
+                    key={cap}
+                    type="button"
+                    onClick={() => updateField('shot_cap', cap)}
+                    className={cn(
+                      'rounded-full px-5 py-2 text-sm transition-all',
+                      data.shot_cap === cap
+                        ? 'bg-white text-black font-semibold'
+                        : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
+                    )}
+                  >
+                    {cap}
+                  </button>
+                ))}
+              </div>
+            </div>
           )}
         </div>
-      </WizardShell>
 
-      {showCoverPicker && (
-        <CoverPicker
-          mode="sheet"
-          presetPaths={COVER_PRESETS}
-          selected={selectedCover}
-          onSelectPreset={path => {
-            setSelectedCover(path)
-            setCoverImageFile(null)
-          }}
-          onSelectFile={(file, blobUrl) => {
-            setCoverImageFile(file)
-            setSelectedCover(blobUrl)
-          }}
-          onClose={() => setShowCoverPicker(false)}
-        />
-      )}
-    </>
+        {(error || step5Error) && (
+          <p className="text-red-400 text-sm">{step5Error ?? error}</p>
+        )}
+      </div>
+    </WizardShell>
   )
 }
