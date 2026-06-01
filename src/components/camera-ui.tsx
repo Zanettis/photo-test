@@ -198,7 +198,7 @@ export default function CameraUI({ event, slug, coverImageUrl }: Props) {
           setShotsRemaining(shots_remaining)
           setShotsTotal(prev => prev + 1)
           setScreen('flash')
-          setTimeout(() => setScreen(shots_remaining === 0 ? 'shot_cap' : 'camera'), 800)
+          setTimeout(() => setScreen(shots_remaining === 0 ? 'shot_cap' : 'camera'), 220)
           return
         }
 
@@ -286,7 +286,10 @@ export default function CameraUI({ event, slug, coverImageUrl }: Props) {
         />
       )}
       {isFlash && (
-        <div className="fixed inset-0 bg-white opacity-100 transition-opacity duration-300 pointer-events-none z-50" />
+        <div
+          className="fixed inset-0 pointer-events-none z-50"
+          style={{ animation: 'camera-flash 220ms ease-out forwards' }}
+        />
       )}
       <input
         ref={inputRef}
@@ -362,7 +365,11 @@ export default function CameraUI({ event, slug, coverImageUrl }: Props) {
               {displayRemaining < (event.shot_cap ?? displayRemaining + 1) && (
                 <span className="text-zinc-600 text-lg font-bold">{displayRemaining + 1}</span>
               )}
-              <span className="text-white text-2xl font-bold">{displayRemaining}</span>
+              <span
+                key={displayRemaining}
+                className="text-white text-2xl font-bold"
+                style={{ animation: 'number-slide-in 200ms ease-out' }}
+              >{displayRemaining}</span>
               {displayRemaining > 0 && (
                 <span className="text-zinc-600 text-lg font-bold">{displayRemaining - 1}</span>
               )}
@@ -392,9 +399,11 @@ export default function CameraUI({ event, slug, coverImageUrl }: Props) {
         >
           {(lastPhotoUrl ?? coverImageUrl) && (
             <img
+              key={lastPhotoUrl ?? coverImageUrl ?? 'empty'}
               src={lastPhotoUrl ?? coverImageUrl ?? ''}
               alt="Galeria"
               className="w-full h-full object-cover"
+              style={{ animation: 'photo-fade-in 300ms ease-out' }}
             />
           )}
         </Link>
