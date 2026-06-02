@@ -89,7 +89,9 @@ export async function GET(
     : 0
 
   const cover_image_url = event.cover_image_path
-    ? serviceClient.storage.from('photos').getPublicUrl(event.cover_image_path).data.publicUrl
+    ? (event.cover_image_path.startsWith('/')
+        ? event.cover_image_path
+        : serviceClient.storage.from('photos').getPublicUrl(event.cover_image_path).data.publicUrl)
     : null
 
   const items = await Promise.all(
