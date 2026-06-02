@@ -1,20 +1,13 @@
-import { createServerClient } from '@supabase/ssr'
-import { cookies } from 'next/headers'
 import { notFound, redirect } from 'next/navigation'
 import Link from 'next/link'
 import { ShareCard } from '@/components/wizard/share-card'
-import type { Database } from '@/types/database'
+import { createServerSupabaseClient } from '@/lib/supabase'
 
 interface Props { params: Promise<{ slug: string }> }
 
 export default async function SharePage({ params }: Props) {
   const { slug } = await params
-  const cookieStore = await cookies()
-  const supabase = createServerClient<Database>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { cookies: { getAll: () => cookieStore.getAll() } }
-  )
+  const supabase = await createServerSupabaseClient()
 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')

@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import QRCode from 'qrcode'
+import { formatEventDate } from '@/lib/date-utils'
 
 interface EventCardProps {
   id: string
@@ -27,7 +28,7 @@ export function EventCard({ name, slug, event_date, photo_count, reveal_at, shot
     setTimeout(() => setCopied(false), 2000)
   }
 
-  const dateFormatted = new Date(event_date + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
+  const dateFormatted = formatEventDate(event_date)
 
   return (
     <div className="border border-zinc-800 rounded-xl p-5 bg-zinc-900 flex gap-5">

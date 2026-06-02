@@ -47,6 +47,7 @@ next-env.d.ts
 # agent runtime state (logs, sessions, internal data)
 .agents/
 .claude-flow/
+.gstack/
 
 # supabase cli temp files (project ref, org id, connection strings)
 supabase/.temp/

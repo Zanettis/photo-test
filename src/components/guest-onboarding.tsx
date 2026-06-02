@@ -1,5 +1,6 @@
 'use client'
 import { useState } from 'react'
+import { formatRevealDate } from '@/lib/date-utils'
 
 interface Props {
   eventName: string
@@ -25,9 +26,7 @@ export function GuestOnboarding({ eventName, slug, revealAt, coverImageUrl, onCo
     }
   }
 
-  const revealDateStr = hasReveal
-    ? new Date(revealAt!).toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })
-    : ''
+  const revealDateStr = hasReveal ? formatRevealDate(revealAt!) : ''
 
   return (
     <div className="absolute inset-0 z-40 flex flex-col">

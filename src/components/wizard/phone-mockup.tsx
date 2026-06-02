@@ -1,16 +1,10 @@
+import { formatDateShort } from '@/lib/date-utils'
+
 interface Props {
   eventName: string
   eventDate: string
   shotCap: number | null
   coverPreview: string | null
-}
-
-function formatDateShort(iso: string): string {
-  try {
-    return new Date(iso + 'T12:00:00').toLocaleDateString('pt-BR', {
-      day: 'numeric', month: 'short',
-    })
-  } catch { return '' }
 }
 
 export function PhoneMockup({ eventName, eventDate, shotCap, coverPreview }: Props) {

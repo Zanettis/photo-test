@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { formatDateMedium } from '@/lib/date-utils'
 
 interface Props {
   slug: string
@@ -10,14 +11,6 @@ interface Props {
   coverImageUrl: string | null
 }
 
-function formatDate(iso: string): string {
-  try {
-    return new Date(iso + 'T12:00:00').toLocaleDateString('pt-BR', {
-      day: 'numeric', month: 'short', year: 'numeric',
-    })
-  } catch { return '' }
-}
-
 export function EventAlbumRow({ slug, name, eventDate, photoCount, coverImageUrl }: Props) {
   return (
     <Link href={`/events/${slug}`} className="block group">
@@ -25,7 +18,7 @@ export function EventAlbumRow({ slug, name, eventDate, photoCount, coverImageUrl
         <h2 className="text-white font-bold text-xl leading-tight group-hover:opacity-80 transition-opacity">
           {name}
         </h2>
-        <span className="text-zinc-500 text-sm shrink-0 ml-3">{formatDate(eventDate)}</span>
+        <span className="text-zinc-500 text-sm shrink-0 ml-3">{formatDateMedium(eventDate)}</span>
       </div>
 
       <div className="relative w-full aspect-[4/3] rounded-2xl overflow-hidden bg-zinc-800">
