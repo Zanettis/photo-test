@@ -92,18 +92,28 @@ export async function GET(
     ? serviceClient.storage.from('photos').getPublicUrl(event.cover_image_path).data.publicUrl
     : null
 
-  const items = (photosResult.data ?? []).map((photo) => {
-    const { data: { publicUrl } } = serviceClient.storage
-      .from('photos')
-      .getPublicUrl(photo.storage_path)
-    return {
-      id: photo.id,
-      url: publicUrl,
-      tags: photo.tags ?? [],
-      tagging_status: photo.tagging_status,
-      uploaded_at: photo.uploaded_at,
-    }
-  })
+  const items = await Promise.all(
+    (photosResult.data ?? []).map(async (photo) => {
+      let url: string
+      if (!publicGallery) {
+        const { data: signed } = await serviceClient.storage
+          .from('photos')
+          .createSignedUrl(photo.storage_path, 3600)
+        url = signed?.signedUrl ?? ''
+      } else {
+        url = serviceClient.storage
+          .from('photos')
+          .getPublicUrl(photo.storage_path).data.publicUrl
+      }
+      return {
+        id: photo.id,
+        url,
+        tags: photo.tags ?? [],
+        tagging_status: photo.tagging_status,
+        uploaded_at: photo.uploaded_at,
+      }
+    })
+  )
 
   return NextResponse.json({
     event: {

@@ -48,5 +48,8 @@ next-env.d.ts
 .agents/
 .claude-flow/
 
+# supabase cli temp files (project ref, org id, connection strings)
+supabase/.temp/
+
 # arquivo inválido criado acidentalmente
 50%
