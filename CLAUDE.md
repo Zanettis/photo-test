@@ -9,8 +9,32 @@
 - ALWAYS read a file before editing it
 - NEVER commit secrets, credentials, or .env files
 - NEVER add a `Co-Authored-By` trailer to user commits unless this project's `.claude/settings.json` has `attribution.commit` set (#2078). The Claude Code Bash tool may suggest one in its default commit-message template — ignore it. `Co-Authored-By` is semantic authorship attribution under git/GitHub convention; the tool is the facilitator, not a co-author.
-- Keep files under 500 lines
+- Keep files under 500 lines — ao atingir 400, planeje a divisão imediatamente
 - Validate input at system boundaries
+
+## Code Quality
+
+### Antes de criar qualquer coisa
+- Antes de criar uma função utilitária, grep em `src/lib/` — se já existe algo parecido, reutilize
+- Antes de inicializar um cliente (Supabase, OpenAI, Resend), use o helper em `src/lib/` — nunca inline
+- Antes de finalizar uma edição em qualquer arquivo, grep pelo nome de cada `useState` e `useEffect` para confirmar que são referenciados no JSX
+
+### Responsabilidades por camada
+- **Pages** (`src/app/`): apenas orquestração — carregar dados, rotear para componentes, chamar handlers. Sem lógica de negócio inline
+- **Components** (`src/components/`): uma responsabilidade por arquivo. Se um componente gerencia câmera + upload + countdown, ele deve ser dividido
+- **Hooks** (`src/hooks/`): toda lógica stateful com browser APIs (câmera, localStorage, fetch com retry, clipboard) deve viver em hooks
+- **Lib** (`src/lib/`): funções puras reutilizáveis — formatação de datas, cálculos de preço, helpers de cliente
+
+### Quando e como dividir arquivos
+- Ao atingir **400 linhas**, planeje a divisão antes de escrever mais
+- Nunca defina um componente dentro de outro componente — extraia imediatamente para o próprio arquivo
+- Páginas com múltiplos passos (wizard, formulário em etapas) devem ter um componente por passo em `src/components/[feature]/steps/`
+- Estado "draft" de formulários com 3+ campos deve viver em um hook dedicado (`use-[feature]-settings.ts`)
+
+### Limpeza de código morto
+- Ao remover UI de um componente, remova TODOS os `useState`, `useEffect` e handlers associados
+- Estados que existem mas não aparecem em nenhum `return` JSX são dead code — remova
+- Ao renomear ou extrair uma função, grep pelo nome antigo antes de fechar o arquivo
 
 ## Agent Comms (SendMessage-First Coordination)
 
@@ -174,3 +198,16 @@ npx @claude-flow/cli@latest doctor --fix
 ```
 
 **Agent tool** handles execution (agents, files, code, git). **MCP tools** handle coordination (swarm, memory, hooks). **CLI** is the same via Bash.
+
+## Padrões deste projeto
+
+| Precisa de | Use |
+|-----------|-----|
+| Cliente Supabase (server component / route handler) | `createServerSupabaseClient()` de `src/lib/supabase.ts` |
+| Cliente Supabase (service role, admin) | `createServiceClient()` de `src/lib/supabase.ts` |
+| Cliente Supabase (browser) | `src/lib/supabase-client.ts` |
+| Formatação de datas | `src/lib/date-utils.ts` — `formatEventDate`, `formatDateMedium`, `formatDateShort`, `formatDateTimeShort`, `formatRevealDate` |
+| Lógica de câmera | hook `src/hooks/use-camera.ts` |
+| Lógica de upload com retry | hook `src/hooks/use-upload.ts` |
+| Estado de wizard | hook `src/hooks/use-wizard-state.ts` |
+| Estado de settings do evento | hook `src/hooks/use-event-settings.ts` |
