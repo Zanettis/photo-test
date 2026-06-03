@@ -54,6 +54,15 @@ export default async function DashboardPage() {
 
   const events = (data ?? []) as EventRow[]
 
+  const { data: participationData } = await supabase
+    .from('event_participants')
+    .select('events(id, slug, name, event_date, closes_at, reveal_at, cover_image_path)')
+    .eq('user_id', user.id)
+
+  const participatedEvents = ((participationData ?? [])
+    .map((p: { events: EventRow | null }) => p.events)
+    .filter(Boolean)) as EventRow[]
+
   const active = events.filter(isActive)
   const albums = events.filter(e => !isActive(e))
 
@@ -103,6 +112,31 @@ export default async function DashboardPage() {
           <p className="text-zinc-500 text-xs font-semibold uppercase tracking-widest mb-4">Albums</p>
           <div className="flex flex-col gap-8">
             {albums.map(event => (
+              <EventAlbumRow
+                key={event.id}
+                slug={event.slug}
+                name={event.name}
+                eventDate={event.event_date}
+                photoCount={0}
+                coverImageUrl={
+                  event.cover_image_path
+                    ? (event.cover_image_path.startsWith('/')
+                        ? event.cover_image_path
+                        : supabase.storage.from('photos').getPublicUrl(event.cover_image_path).data.publicUrl)
+                    : null
+                }
+              />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* PARTICIPATED section */}
+      {participatedEvents.length > 0 && (
+        <section className="mt-8">
+          <p className="text-zinc-500 text-xs font-semibold uppercase tracking-widest mb-4">Eventos que participei</p>
+          <div className="flex flex-col gap-8">
+            {participatedEvents.map(event => (
               <EventAlbumRow
                 key={event.id}
                 slug={event.slug}

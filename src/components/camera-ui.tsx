@@ -14,6 +14,7 @@ interface Props {
   event: EventRow
   slug: string
   coverImageUrl?: string | null
+  backUrl?: string
 }
 
 type Screen = 'camera' | 'uploading' | 'flash' | 'shot_cap' | 'closed'
@@ -30,7 +31,7 @@ function getTimeLeft(closesAt: string | null, eventDate: string): string {
   return `${mins}m left`
 }
 
-export default function CameraUI({ event, slug, coverImageUrl }: Props) {
+export default function CameraUI({ event, slug, coverImageUrl, backUrl }: Props) {
   const router = useRouter()
   const inputRef = useRef<HTMLInputElement>(null)
   const [screen, setScreen] = useState<Screen>('camera')
@@ -130,7 +131,7 @@ export default function CameraUI({ event, slug, coverImageUrl }: Props) {
 
       {/* Header */}
       <div className="flex items-center justify-between px-4 h-16 shrink-0">
-        <button onClick={() => router.back()} className="w-10 h-10 bg-zinc-800/80 backdrop-blur-sm rounded-xl flex items-center justify-center" aria-label="Voltar">
+        <button onClick={() => router.push(backUrl ?? '/dashboard')} className="w-10 h-10 bg-zinc-800/80 backdrop-blur-sm rounded-xl flex items-center justify-center" aria-label="Voltar">
           <ChevronLeft size={20} className="text-white" />
         </button>
         <div className="flex flex-col items-center">

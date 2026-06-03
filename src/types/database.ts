@@ -92,6 +92,32 @@ export interface Database {
           }
         ]
       }
+      event_participants: {
+        Row: {
+          event_id: string
+          user_id: string
+          joined_at: string
+        }
+        Insert: {
+          event_id: string
+          user_id: string
+          joined_at?: string
+        }
+        Update: {
+          event_id?: string
+          user_id?: string
+          joined_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_participants_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       photos: {
         Row: {
           id: string
