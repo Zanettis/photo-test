@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ChevronLeft, Camera } from 'lucide-react'
+import { Camera } from 'lucide-react'
 import { PhotoGrid } from '@/components/photo-grid'
 
 interface Photo {
@@ -28,7 +28,6 @@ interface Props {
   revealAt: string | null
   eventDate: string
   closesAt: string | null
-  isAuthenticated: boolean
 }
 
 function formatCountdown(target: Date): string {
@@ -62,7 +61,6 @@ export default function GuestGalleryClient({
   revealAt,
   eventDate,
   closesAt,
-  isAuthenticated,
 }: Props) {
   const router = useRouter()
   const [countdown, setCountdown] = useState<string | null>(null)
@@ -141,18 +139,6 @@ export default function GuestGalleryClient({
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-black/20" />
 
-        {isAuthenticated && (
-          <div className="absolute top-4 left-4">
-            <button
-              onClick={() => router.push('/dashboard')}
-              className="w-9 h-9 bg-black/40 backdrop-blur-sm rounded-xl flex items-center justify-center"
-              aria-label="Voltar ao dashboard"
-            >
-              <ChevronLeft size={18} className="text-white" />
-            </button>
-          </div>
-        )}
-
         <div className="absolute bottom-0 left-0 right-0 p-5">
           {isClosed && (
             <span className="text-[10px] font-bold tracking-widest text-white bg-red-500/80 rounded px-2 py-0.5 uppercase mb-2 inline-block">
@@ -210,7 +196,7 @@ export default function GuestGalleryClient({
       </div>
 
       {/* Photo grid */}
-      <div className="px-4 pb-4">
+      <div className="px-4">
         <PhotoGrid
           photos={filtered}
           isLoading={isLoading}

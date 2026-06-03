@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation'
-import { createServiceClient, createServerSupabaseClient } from '@/lib/supabase'
+import { createServiceClient } from '@/lib/supabase'
 import GuestGalleryClient from './gallery-client'
 
 export default async function GuestGalleryPage({
@@ -30,13 +30,9 @@ export default async function GuestGalleryPage({
         revealAt={event.reveal_at!}
         eventDate={event.event_date}
         closesAt={event.closes_at}
-        isAuthenticated={false}
       />
     )
   }
-
-  const supabaseServer = await createServerSupabaseClient()
-  const { data: authData } = await supabaseServer.auth.getUser()
 
   return (
     <GuestGalleryClient
@@ -46,7 +42,6 @@ export default async function GuestGalleryPage({
       revealAt={event.reveal_at}
       eventDate={event.event_date}
       closesAt={event.closes_at}
-      isAuthenticated={!!authData?.user}
     />
   )
 }

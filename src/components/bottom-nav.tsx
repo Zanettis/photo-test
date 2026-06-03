@@ -7,7 +7,9 @@ import { cn } from '@/lib/utils'
 export function BottomNav() {
   const pathname = usePathname()
 
-  const eventMatch = pathname.match(/^\/events\/([^/]+)/)
+  const eventMatch =
+    pathname.match(/^\/events\/([^/]+)/) ??
+    pathname.match(/^\/e\/([^/]+)/)
   const eventSlug = eventMatch?.[1] !== 'new' ? eventMatch?.[1] : null
 
   return (
