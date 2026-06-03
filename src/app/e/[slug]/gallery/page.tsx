@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation'
-import { createServiceClient } from '@/lib/supabase'
+import { createServiceClient, createServerSupabaseClient } from '@/lib/supabase'
 import GuestGalleryClient from './gallery-client'
 
 export default async function GuestGalleryPage({
@@ -22,22 +22,31 @@ export default async function GuestGalleryPage({
   const is_revealed = event.reveal_at === null || event.reveal_at <= now
 
   if (!is_revealed) {
-    return <GuestGalleryClient mode="countdown" eventName={event.name} revealAt={event.reveal_at!} photos={[]} />
+    return (
+      <GuestGalleryClient
+        mode="countdown"
+        slug={slug}
+        eventName={event.name}
+        revealAt={event.reveal_at!}
+        eventDate={event.event_date}
+        closesAt={event.closes_at}
+        isAuthenticated={false}
+      />
+    )
   }
 
-  const { data: photos } = await serviceClient
-    .from('photos')
-    .select('id, storage_path, tags, uploaded_at')
-    .eq('event_id', event.id)
-    .eq('is_flagged', false)
-    .order('uploaded_at', { ascending: false })
+  const supabaseServer = await createServerSupabaseClient()
+  const { data: authData } = await supabaseServer.auth.getUser()
 
-  const items = (photos ?? []).map((photo) => {
-    const { data: { publicUrl } } = serviceClient.storage
-      .from('photos')
-      .getPublicUrl(photo.storage_path)
-    return { id: photo.id, url: publicUrl, tags: photo.tags ?? [] }
-  })
-
-  return <GuestGalleryClient mode="gallery" eventName={event.name} revealAt={event.reveal_at} photos={items} />
+  return (
+    <GuestGalleryClient
+      mode="gallery"
+      slug={slug}
+      eventName={event.name}
+      revealAt={event.reveal_at}
+      eventDate={event.event_date}
+      closesAt={event.closes_at}
+      isAuthenticated={!!authData?.user}
+    />
+  )
 }
