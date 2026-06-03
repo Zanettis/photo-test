@@ -66,6 +66,9 @@ export default async function DashboardPage() {
   const active = events.filter(isActive)
   const albums = events.filter(e => !isActive(e))
 
+  const participatedActive = participatedEvents.filter(isActive)
+  const participatedAlbums = participatedEvents.filter(e => !isActive(e))
+
   return (
     <div className="px-5 pt-10 pb-4">
       {/* Header */}
@@ -81,7 +84,7 @@ export default async function DashboardPage() {
       </div>
 
       {/* ACTIVE section */}
-      {active.length > 0 && (
+      {(active.length > 0 || participatedActive.length > 0) && (
         <section className="mb-8">
           <p className="text-zinc-500 text-xs font-semibold uppercase tracking-widest mb-4">Active</p>
           <div className="-mx-5 flex flex-row gap-3 overflow-x-auto snap-x snap-mandatory px-5 pr-5 pb-3 [&::-webkit-scrollbar]:hidden">
@@ -100,6 +103,24 @@ export default async function DashboardPage() {
                     : null
                 }
                 timeRemaining={getTimeRemaining(event.closes_at, event.event_date)}
+              />
+            ))}
+            {participatedActive.map(event => (
+              <EventHeroCard
+                key={event.id}
+                slug={event.slug}
+                name={event.name}
+                eventDate={event.event_date}
+                closesAt={event.closes_at}
+                coverImageUrl={
+                  event.cover_image_path
+                    ? (event.cover_image_path.startsWith('/')
+                        ? event.cover_image_path
+                        : supabase.storage.from('photos').getPublicUrl(event.cover_image_path).data.publicUrl)
+                    : null
+                }
+                timeRemaining={getTimeRemaining(event.closes_at, event.event_date)}
+                primaryHref={`/e/${event.slug}/gallery`}
               />
             ))}
           </div>
@@ -131,12 +152,12 @@ export default async function DashboardPage() {
         </section>
       )}
 
-      {/* PARTICIPATED section */}
-      {participatedEvents.length > 0 && (
+      {/* PARTICIPATED (past) section */}
+      {participatedAlbums.length > 0 && (
         <section className="mt-8">
           <p className="text-zinc-500 text-xs font-semibold uppercase tracking-widest mb-4">Eventos que participei</p>
           <div className="flex flex-col gap-8">
-            {participatedEvents.map(event => (
+            {participatedAlbums.map(event => (
               <EventAlbumRow
                 key={event.id}
                 slug={event.slug}
@@ -165,7 +186,7 @@ export default async function DashboardPage() {
       )}
 
       {/* Empty state */}
-      {!error && events.length === 0 && (
+      {!error && events.length === 0 && participatedEvents.length === 0 && (
         <div className="flex flex-col items-center justify-center py-20 gap-4 text-center">
           <p className="text-zinc-600 text-sm">Nenhum evento ainda.</p>
           <Link href="/events/new" className="text-white text-sm underline underline-offset-2">

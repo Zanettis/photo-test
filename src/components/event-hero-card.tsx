@@ -10,9 +10,10 @@ interface Props {
   closesAt: string | null
   coverImageUrl: string | null
   timeRemaining: string
+  primaryHref?: string
 }
 
-export function EventHeroCard({ slug, name, coverImageUrl, timeRemaining }: Props) {
+export function EventHeroCard({ slug, name, coverImageUrl, timeRemaining, primaryHref }: Props) {
   return (
     <div className="relative w-[72vw] max-w-[280px] flex-shrink-0 snap-start aspect-[4/5] rounded-3xl overflow-hidden bg-zinc-900">
       {coverImageUrl ? (
@@ -35,8 +36,8 @@ export function EventHeroCard({ slug, name, coverImageUrl, timeRemaining }: Prop
         </span>
       </div>
 
-      {/* bottom info — links to host gallery */}
-      <Link href={`/events/${slug}`} className="absolute inset-0" aria-label={name} />
+      {/* bottom info — links to host gallery or override */}
+      <Link href={primaryHref ?? `/events/${slug}`} className="absolute inset-0" aria-label={name} />
 
       <div className="absolute bottom-16 left-4 right-4">
         <p className="text-white font-bold text-2xl leading-tight">{name}</p>
