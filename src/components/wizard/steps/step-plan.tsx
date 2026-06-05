@@ -24,7 +24,7 @@ export function StepPlan({ guestCap, shotCap, onChangeGuestCap, onChangeShotCap,
 
   return (
     <WizardShell
-      currentStep={5} totalSteps={5}
+      currentStep={6} totalSteps={6}
       onBack={onBack}
       onExit={onExit}
       cta={

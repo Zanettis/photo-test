@@ -9,6 +9,7 @@ export interface WizardData {
   guest_cap: number | null
   reveal_at: string | null  // ISO timestamp or null
   closes_at: string | null  // ISO timestamp or null
+  photo_filter: string
 }
 
 export function useWizardState() {

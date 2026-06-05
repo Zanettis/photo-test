@@ -13,7 +13,7 @@ interface Props {
 export function StepDate({ eventDate, onChange, onNext, onBack, onExit }: Props) {
   return (
     <WizardShell
-      currentStep={2} totalSteps={5}
+      currentStep={2} totalSteps={6}
       onBack={onBack}
       onExit={onExit}
       cta={

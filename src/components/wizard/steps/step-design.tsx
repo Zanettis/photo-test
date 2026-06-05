@@ -24,7 +24,7 @@ export function StepDesign({ eventName, eventDate, shotCap, selectedCover, onSel
   return (
     <>
       <WizardShell
-        currentStep={4} totalSteps={5}
+        currentStep={4} totalSteps={6}
         onBack={onBack}
         onExit={onExit}
         cta={

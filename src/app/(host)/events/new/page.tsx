@@ -7,6 +7,7 @@ import { StepName } from '@/components/wizard/steps/step-name'
 import { StepDate } from '@/components/wizard/steps/step-date'
 import { StepReveal } from '@/components/wizard/steps/step-reveal'
 import { StepDesign } from '@/components/wizard/steps/step-design'
+import { StepFilter } from '@/components/wizard/steps/step-filter'
 import { StepPlan } from '@/components/wizard/steps/step-plan'
 
 export default function NewEventPage() {
@@ -16,6 +17,7 @@ export default function NewEventPage() {
   // selectedCover and coverImageFile persist across steps 4→5 (selected in 4, uploaded in 5)
   const [selectedCover, setSelectedCover] = useState<string | null>(COVER_PRESETS[0] ?? null)
   const [coverImageFile, setCoverImageFile] = useState<File | null>(null)
+  const [selectedFilter, setSelectedFilter] = useState('none')
   const [submitLoading, setSubmitLoading] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
 
@@ -65,7 +67,7 @@ export default function NewEventPage() {
       await fetch(`/api/events/${slug}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ cover_image_path: coverPath }),
+        body: JSON.stringify({ cover_image_path: coverPath, settings: { photo_filter: selectedFilter } }),
       })
       router.push(`/events/${slug}/share`)
     } catch {
@@ -110,6 +112,17 @@ export default function NewEventPage() {
       selectedCover={selectedCover}
       onSelectPreset={path => { setSelectedCover(path); setCoverImageFile(null) }}
       onSelectFile={(file, url) => { setCoverImageFile(file); setSelectedCover(url) }}
+      onNext={nextStep}
+      onBack={prevStep}
+      onExit={exit}
+    />
+  )
+
+  if (step === 5) return (
+    <StepFilter
+      selectedFilter={selectedFilter}
+      previewImage={selectedCover}
+      onSelect={setSelectedFilter}
       onNext={nextStep}
       onBack={prevStep}
       onExit={exit}

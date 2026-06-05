@@ -20,7 +20,7 @@ export function StepReveal({ closesAt, onNext, onBack, onExit }: Props) {
 
   return (
     <WizardShell
-      currentStep={3} totalSteps={5}
+      currentStep={3} totalSteps={6}
       onBack={onBack}
       onExit={onExit}
       cta={

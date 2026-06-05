@@ -7,6 +7,7 @@ import type { Database } from '@/types/database'
 import { GuestOnboarding } from './guest-onboarding'
 import { useCamera } from '@/hooks/use-camera'
 import { useUpload } from '@/hooks/use-upload'
+import { getFilterCss } from '@/lib/photo-filters'
 
 type EventRow = Database['public']['Tables']['events']['Row']
 
@@ -41,6 +42,7 @@ export default function CameraUI({ event, slug, coverImageUrl, backUrl }: Props)
 
   const { videoRef, cameraReady, cameraError } = useCamera(screen)
   const { shotsRemaining, upload } = useUpload(slug)
+  const filterCss = getFilterCss((event.settings as Record<string, unknown> | null)?.photo_filter as string ?? 'none')
 
   useEffect(() => {
     const isOpen = !event.closes_at || new Date(event.closes_at) > new Date()
@@ -48,6 +50,26 @@ export default function CameraUI({ event, slug, coverImageUrl, backUrl }: Props)
 
     if (!localStorage.getItem(`onboarded_${slug}`)) setShowOnboarding(true)
   }, [slug, event.closes_at])
+
+  async function applyFilterToFile(file: File): Promise<File> {
+    if (filterCss === 'none') return file
+    return new Promise(resolve => {
+      const img = new Image()
+      img.onload = () => {
+        const canvas = document.createElement('canvas')
+        canvas.width = img.naturalWidth
+        canvas.height = img.naturalHeight
+        const ctx = canvas.getContext('2d')!
+        ctx.filter = filterCss
+        ctx.drawImage(img, 0, 0)
+        canvas.toBlob(blob => {
+          URL.revokeObjectURL(img.src)
+          resolve(blob ? new File([blob], file.name, { type: 'image/jpeg' }) : file)
+        }, 'image/jpeg', 0.9)
+      }
+      img.src = URL.createObjectURL(file)
+    })
+  }
 
   const handleFileSelected = useCallback(async (file: File) => {
     setScreen('uploading')
@@ -71,7 +93,11 @@ export default function CameraUI({ event, slug, coverImageUrl, backUrl }: Props)
       const canvas = document.createElement('canvas')
       canvas.width = video.videoWidth
       canvas.height = video.videoHeight
-      canvas.getContext('2d')?.drawImage(video, 0, 0)
+      const ctx = canvas.getContext('2d')
+      if (ctx) {
+        if (filterCss !== 'none') ctx.filter = filterCss
+        ctx.drawImage(video, 0, 0)
+      }
       canvas.toBlob(blob => {
         if (!blob) return
         setLastPhotoUrl(URL.createObjectURL(blob))
@@ -82,11 +108,11 @@ export default function CameraUI({ event, slug, coverImageUrl, backUrl }: Props)
     }
   }
 
-  function handleInputChange(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handleInputChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
     e.target.value = ''
-    handleFileSelected(file)
+    handleFileSelected(await applyFilterToFile(file))
   }
 
   if (screen === 'closed') {
@@ -145,7 +171,7 @@ export default function CameraUI({ event, slug, coverImageUrl, backUrl }: Props)
 
       {/* Viewfinder */}
       <div className="flex-1 mx-4 my-2 relative rounded-[32px] overflow-hidden bg-zinc-950">
-        <video ref={videoRef} autoPlay playsInline muted className="absolute inset-0 w-full h-full object-cover" />
+        <video ref={videoRef} autoPlay playsInline muted className="absolute inset-0 w-full h-full object-cover" style={filterCss !== 'none' ? { filter: filterCss } : undefined} />
         {isUploading && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/50">
             <div className="w-10 h-10 border-2 border-zinc-600 border-t-white rounded-full animate-spin" />

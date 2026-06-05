@@ -24,7 +24,7 @@ export function StepName({ name, onChange, onNext, onExit }: Props) {
 
   return (
     <WizardShell
-      currentStep={1} totalSteps={5}
+      currentStep={1} totalSteps={6}
       onExit={onExit}
       cta={
         <button
