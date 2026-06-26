@@ -1,7 +1,7 @@
 import { createServerSupabaseClient } from '@/lib/supabase'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { QrCode } from 'lucide-react'
+import { Plus, QrCode } from 'lucide-react'
 import { EventHeroCard } from '@/components/event-hero-card'
 import { EventAlbumRow } from '@/components/event-album-row'
 
@@ -37,6 +37,12 @@ function isActive(event: EventRow): boolean {
   return true
 }
 
+function getCoverUrl(supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>, path: string | null): string | null {
+  if (!path) return null
+  if (path.startsWith('/') || path.startsWith('http')) return path
+  return supabase.storage.from('photos').getPublicUrl(path).data.publicUrl
+}
+
 export default async function DashboardPage() {
   const supabase = await createServerSupabaseClient()
 
@@ -69,58 +75,82 @@ export default async function DashboardPage() {
   const participatedActive = participatedEvents.filter(isActive)
   const participatedAlbums = participatedEvents.filter(e => !isActive(e))
 
+  // Fetch thumbnails for all album events
+  const albumEvents = [...albums, ...participatedAlbums]
+  const albumEventIds = albumEvents.map(e => e.id)
+
+  const photosByEvent: Record<string, string[]> = {}
+  const photoCountByEvent: Record<string, number> = {}
+
+  if (albumEventIds.length > 0) {
+    const { data: photosData } = await supabase
+      .from('photos')
+      .select('event_id, storage_path')
+      .in('event_id', albumEventIds)
+      .order('uploaded_at', { ascending: true })
+
+    for (const photo of photosData ?? []) {
+      if (!photosByEvent[photo.event_id]) {
+        photosByEvent[photo.event_id] = []
+        photoCountByEvent[photo.event_id] = 0
+      }
+      photoCountByEvent[photo.event_id]++
+      if (photosByEvent[photo.event_id].length < 4) {
+        photosByEvent[photo.event_id].push(photo.storage_path)
+      }
+    }
+  }
+
+  function getEventPhotos(eventId: string): { url: string }[] {
+    return (photosByEvent[eventId] ?? []).map(path => ({
+      url: supabase.storage.from('photos').getPublicUrl(path).data.publicUrl,
+    }))
+  }
+
+  const allActive = [
+    ...active.map(e => ({ ...e, role: 'host' as const })),
+    ...participatedActive.map(e => ({ ...e, role: 'guest' as const })),
+  ]
+
   return (
-    <div className="px-5 pt-10 pb-4">
+    <div className="px-4 pt-10 pb-4">
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <span className="text-white font-bold text-2xl">✳ fluke</span>
-        <Link
-          href="/join"
-          className="flex items-center gap-2 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-full text-white text-sm font-medium transition-colors"
-        >
-          <QrCode size={15} />
-          Join
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link
+            href="/join"
+            className="flex items-center gap-1.5 px-3 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-full text-white text-sm font-medium transition-colors"
+          >
+            <QrCode size={14} />
+            Join
+          </Link>
+          <Link
+            href="/events/new"
+            className="flex items-center gap-1.5 px-3 py-2 bg-white hover:bg-zinc-100 rounded-full text-black text-sm font-medium transition-colors"
+          >
+            <Plus size={14} strokeWidth={2.5} />
+            New
+          </Link>
+        </div>
       </div>
 
       {/* ACTIVE section */}
-      {(active.length > 0 || participatedActive.length > 0) && (
+      {allActive.length > 0 && (
         <section className="mb-8">
-          <p className="text-zinc-500 text-xs font-semibold uppercase tracking-widest mb-4">Active</p>
-          <div className="-mx-5 flex flex-row gap-3 overflow-x-auto snap-x snap-mandatory px-5 pr-5 pb-3 [&::-webkit-scrollbar]:hidden">
-            {active.map(event => (
+          <p className="text-zinc-500 text-xs font-bold uppercase tracking-widest mb-4">Active</p>
+          <div className="-mx-4 flex flex-row gap-3 overflow-x-auto snap-x snap-mandatory px-4 pb-3 [&::-webkit-scrollbar]:hidden">
+            {allActive.map(event => (
               <EventHeroCard
                 key={event.id}
                 slug={event.slug}
                 name={event.name}
                 eventDate={event.event_date}
                 closesAt={event.closes_at}
-                coverImageUrl={
-                  event.cover_image_path
-                    ? (event.cover_image_path.startsWith('/')
-                        ? event.cover_image_path
-                        : supabase.storage.from('photos').getPublicUrl(event.cover_image_path).data.publicUrl)
-                    : null
-                }
+                coverImageUrl={getCoverUrl(supabase, event.cover_image_path)}
                 timeRemaining={getTimeRemaining(event.closes_at, event.event_date)}
-              />
-            ))}
-            {participatedActive.map(event => (
-              <EventHeroCard
-                key={event.id}
-                slug={event.slug}
-                name={event.name}
-                eventDate={event.event_date}
-                closesAt={event.closes_at}
-                coverImageUrl={
-                  event.cover_image_path
-                    ? (event.cover_image_path.startsWith('/')
-                        ? event.cover_image_path
-                        : supabase.storage.from('photos').getPublicUrl(event.cover_image_path).data.publicUrl)
-                    : null
-                }
-                timeRemaining={getTimeRemaining(event.closes_at, event.event_date)}
-                primaryHref={`/e/${event.slug}/gallery`}
+                role={event.role}
+                primaryHref={event.role === 'guest' ? `/e/${event.slug}/gallery` : undefined}
               />
             ))}
           </div>
@@ -128,49 +158,28 @@ export default async function DashboardPage() {
       )}
 
       {/* ALBUMS section */}
-      {albums.length > 0 && (
+      {(albums.length > 0 || participatedAlbums.length > 0) && (
         <section>
-          <p className="text-zinc-500 text-xs font-semibold uppercase tracking-widest mb-4">Albums</p>
-          <div className="flex flex-col gap-8">
+          <p className="text-zinc-500 text-xs font-bold uppercase tracking-widest mb-1">Albums</p>
+          <div className="flex flex-col">
             {albums.map(event => (
               <EventAlbumRow
                 key={event.id}
                 slug={event.slug}
                 name={event.name}
                 eventDate={event.event_date}
-                photoCount={0}
-                coverImageUrl={
-                  event.cover_image_path
-                    ? (event.cover_image_path.startsWith('/')
-                        ? event.cover_image_path
-                        : supabase.storage.from('photos').getPublicUrl(event.cover_image_path).data.publicUrl)
-                    : null
-                }
+                photos={getEventPhotos(event.id)}
+                photoCount={photoCountByEvent[event.id] ?? 0}
               />
             ))}
-          </div>
-        </section>
-      )}
-
-      {/* PARTICIPATED (past) section */}
-      {participatedAlbums.length > 0 && (
-        <section className="mt-8">
-          <p className="text-zinc-500 text-xs font-semibold uppercase tracking-widest mb-4">Eventos que participei</p>
-          <div className="flex flex-col gap-8">
             {participatedAlbums.map(event => (
               <EventAlbumRow
                 key={event.id}
                 slug={event.slug}
                 name={event.name}
                 eventDate={event.event_date}
-                photoCount={0}
-                coverImageUrl={
-                  event.cover_image_path
-                    ? (event.cover_image_path.startsWith('/')
-                        ? event.cover_image_path
-                        : supabase.storage.from('photos').getPublicUrl(event.cover_image_path).data.publicUrl)
-                    : null
-                }
+                photos={getEventPhotos(event.id)}
+                photoCount={photoCountByEvent[event.id] ?? 0}
               />
             ))}
           </div>

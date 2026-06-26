@@ -7,13 +7,16 @@ interface Props {
   slug: string
   name: string
   eventDate: string
+  photos: { url: string }[]
   photoCount: number
-  coverImageUrl: string | null
 }
 
-export function EventAlbumRow({ slug, name, eventDate, photoCount, coverImageUrl }: Props) {
+export function EventAlbumRow({ slug, name, eventDate, photos, photoCount }: Props) {
+  const showOverflow = photoCount > 4
+  const overflowCount = showOverflow ? photoCount - 4 : 0
+
   return (
-    <Link href={`/events/${slug}`} className="block group">
+    <Link href={`/events/${slug}`} className="block group py-5 border-t border-zinc-800/60">
       <div className="flex items-baseline justify-between mb-3">
         <h2 className="text-white font-bold text-xl leading-tight group-hover:opacity-80 transition-opacity">
           {name}
@@ -21,25 +24,33 @@ export function EventAlbumRow({ slug, name, eventDate, photoCount, coverImageUrl
         <span className="text-zinc-500 text-sm shrink-0 ml-3">{formatDateMedium(eventDate)}</span>
       </div>
 
-      <div className="relative w-full aspect-[4/3] rounded-2xl overflow-hidden bg-zinc-800">
-        {coverImageUrl ? (
-          <img
-            src={coverImageUrl}
-            alt={name}
-            className="w-full h-full object-cover"
-            onError={e => { (e.target as HTMLImageElement).style.display = 'none' }}
-          />
-        ) : (
-          <div className="absolute inset-0 bg-gradient-to-br from-zinc-700 to-zinc-900" />
-        )}
-        {photoCount > 0 && (
-          <div className="absolute bottom-3 left-3">
-            <span className="text-xs text-white bg-black/50 backdrop-blur-sm rounded-full px-2.5 py-1">
-              {photoCount} {photoCount === 1 ? 'foto' : 'fotos'}
-            </span>
-          </div>
-        )}
-      </div>
+      {photoCount === 0 ? (
+        <p className="text-sm text-zinc-500">No photos yet</p>
+      ) : (
+        <div className="flex gap-1">
+          {photos.map((photo, i) => {
+            const isLast = i === 3 && showOverflow
+            return (
+              <div
+                key={i}
+                className="relative flex-1 aspect-square rounded-xl overflow-hidden bg-zinc-800 min-w-0"
+              >
+                <img
+                  src={photo.url}
+                  alt=""
+                  className="w-full h-full object-cover"
+                  onError={e => { (e.target as HTMLImageElement).style.display = 'none' }}
+                />
+                {isLast && (
+                  <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                    <span className="text-white text-sm font-bold">+{overflowCount}</span>
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
     </Link>
   )
 }

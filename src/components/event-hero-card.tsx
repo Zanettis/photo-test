@@ -11,11 +11,12 @@ interface Props {
   coverImageUrl: string | null
   timeRemaining: string
   primaryHref?: string
+  role?: 'host' | 'guest'
 }
 
-export function EventHeroCard({ slug, name, coverImageUrl, timeRemaining, primaryHref }: Props) {
+export function EventHeroCard({ slug, name, coverImageUrl, timeRemaining, primaryHref, role }: Props) {
   return (
-    <div className="relative w-[72vw] max-w-[280px] flex-shrink-0 snap-start aspect-[4/5] rounded-3xl overflow-hidden bg-zinc-900">
+    <div className="relative w-[82vw] max-w-[320px] flex-shrink-0 snap-start aspect-[4/5] rounded-3xl overflow-hidden bg-zinc-900">
       {coverImageUrl ? (
         <img
           src={coverImageUrl}
@@ -30,17 +31,26 @@ export function EventHeroCard({ slug, name, coverImageUrl, timeRemaining, primar
       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
 
       {/* top badge */}
-      <div className="absolute top-4 left-4">
-        <span className="text-[10px] font-bold tracking-widest text-white bg-blue-500/90 rounded-md px-2 py-0.5 uppercase">
-          Ativo
-        </span>
-      </div>
+      {role && (
+        <div className="absolute top-4 left-4">
+          {role === 'guest' ? (
+            <span className="text-[10px] font-bold tracking-widest text-teal-400 bg-teal-400/15 rounded px-2 py-0.5 uppercase">
+              Joined
+            </span>
+          ) : (
+            <span className="text-[10px] font-bold tracking-widest text-zinc-300 bg-zinc-800/80 rounded px-2 py-0.5 uppercase">
+              Host
+            </span>
+          )}
+        </div>
+      )}
 
-      {/* bottom info — links to host gallery or override */}
+      {/* tap area — links to host gallery or override */}
       <Link href={primaryHref ?? `/events/${slug}`} className="absolute inset-0" aria-label={name} />
 
+      {/* bottom info */}
       <div className="absolute bottom-16 left-4 right-4">
-        <p className="text-white font-bold text-2xl leading-tight">{name}</p>
+        <p className="text-white font-bold text-2xl leading-tight drop-shadow-sm">{name}</p>
         {timeRemaining && (
           <div className="flex items-center gap-1.5 mt-1">
             <Clock size={12} className="text-zinc-300" />
