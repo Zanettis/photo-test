@@ -211,3 +211,48 @@ npx @claude-flow/cli@latest doctor --fix
 | Lógica de upload com retry | hook `src/hooks/use-upload.ts` |
 | Estado de wizard | hook `src/hooks/use-wizard-state.ts` |
 | Estado de settings do evento | hook `src/hooks/use-event-settings.ts` |
+
+## Design System
+
+### Regras de layout (obrigatórias)
+- TODA página host usa `<PageShell>` como wrapper raiz — NUNCA montar `min-h-screen bg-[#0a0a0a] pb-24` manualmente
+- Páginas fullscreen (wizard, câmera) usam `<PageShell fullscreen>` para omitir o `pb-24`
+- Padding lateral padrão de página: `px-4` — nunca `px-6` diretamente em páginas
+- Espaçamento entre seções maiores: `gap-6` ou `mb-6` — nunca valores ad-hoc acima de `mb-8`
+
+### Primitivos obrigatórios
+
+| Precisa de | Use |
+|-----------|-----|
+| Wrapper de página host | `<PageShell>` de `src/components/ui/page-shell.tsx` |
+| Card/container com fundo | `<Card>` de `src/components/ui/card.tsx` |
+| Input de formulário | `<Input>` de `src/components/ui/input.tsx` |
+| Status / tag / pill | `<Badge>` de `src/components/ui/badge.tsx` |
+| Bloco de seção com título | `<Section>` de `src/components/ui/section.tsx` |
+| Botão | `<Button>` de `src/components/ui/button.tsx` |
+
+Referência visual de todos os primitivos: `/dev/ui`
+
+### Escala tipográfica
+
+| Uso | Classes |
+|-----|---------|
+| Título de página | `text-2xl font-bold text-white` |
+| Título de seção | `text-xs font-bold tracking-widest uppercase text-zinc-400` (use `<Section title>`) |
+| Corpo | `text-sm text-white` |
+| Texto secundário | `text-sm text-zinc-400` |
+| Caption | `text-xs text-zinc-500` |
+
+### Paleta de cores (não criar cores novas)
+
+| Uso | Classe |
+|-----|--------|
+| Background de página | `bg-[#0a0a0a]` |
+| Surface (cards) | `bg-zinc-900` |
+| Surface hover / secundária | `bg-zinc-800` |
+| Border padrão | `border-zinc-800` |
+| Border de input | `border-zinc-700` |
+| Texto sobre imagem | `text-white drop-shadow-sm` |
+| Positivo / ativo | `text-green-500` / `bg-green-500` |
+| Destrutivo | `text-red-400` |
+| Warning | `text-amber-400` |

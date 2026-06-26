@@ -117,6 +117,12 @@
   --sidebar-ring: oklch(0.556 0 0);
 }
 
+/* Design System Tokens */
+:root {
+  --page-px: 1rem;       /* horizontal page padding → use px-4 */
+  --bottom-nav-h: 6rem;  /* bottom nav height → use pb-24 to clear it */
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
